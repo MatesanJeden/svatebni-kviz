@@ -1,0 +1,14 @@
+# Maven build výstupy
+target/
+*.class
+
+# IntelliJ IDEA konfigurace
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Logy a dočasné soubory
+*.log
+.DS_Store
