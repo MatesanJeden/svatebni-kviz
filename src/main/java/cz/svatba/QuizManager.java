@@ -16,13 +16,20 @@ public class QuizManager {
 
     // Modifikovatelný seznam otázek
     private final List<Question> questions = new ArrayList<>(List.of(
-            new Question(1, "Kdo udělal první krok k seznámení?"),
-            new Question(2, "Kdo doma častěji a raději vaří?"),
-            new Question(3, "Kdo má větší tendenci chodit pozdě?"),
-            new Question(4, "Kdo tráví víc času vybíráním filmu před spaním?"),
-            new Question(5, "Kdo lépe parkuje autem?"),
-            new Question(6, "Kdo je ranní ptáče a vstává dříve?"),
-            new Question(7, "Kdo víc plánuje a organizuje společné výlety?")
+            new Question(1, "Kdo je více upovídaný?"),
+            new Question(2, "Kdo je více společenský?"),
+            new Question(3, "Kdo podváděl ve škole při testech?"),
+            new Question(4, "Kdo měl lepší známky z maturitního vysvědčení?"),
+            new Question(5, "Kdo je větší optimista?"),
+            new Question(6, "Komu by spíše chcípla kytka?"),
+            new Question(7, "Kdo by spíše vyhrál vědomostní soutěž?"),
+            new Question(8, "Kdo se bude víc roztahovat na posteli?"),
+            new Question(9, "Kdo bude brát deku tomu druhému?"),
+            new Question(10, "Kdo je větší romantik?"),
+            new Question(11, "Kdo se zamiloval jako první?"),
+            new Question(12, "Kdo byl nervóznější při první schůzce?"),
+            new Question(13, "Kdo jako první začal mluvit o svatbě?"),
+            new Question(14, "Kdo má toho druhého opravdu rád?")
     ));
 
     public static final List<String> GLOBAL_OPTIONS = List.of(
@@ -31,9 +38,9 @@ public class QuizManager {
             AnswerOption.OBA.getLabel()
     );
 
-    // Správné odpovědi vždy udržují stejnou velikost jako questions
+    // Výchozí hodnota je null pro každou otázku (žádná není předvybraná)
     private final List<AnswerOption> correctAnswers = new ArrayList<>(
-            Collections.nCopies(questions.size(), AnswerOption.NAT)
+            Collections.nCopies(questions.size(), null)
     );
 
     public synchronized void registerPlayer(String id, String name) {
@@ -53,26 +60,39 @@ public class QuizManager {
         }
     }
 
-    public synchronized void changeState(GameState newState) {
+    public synchronized boolean areAllAnswersSet() {
+        if (questions.isEmpty()) return false;
+        for (AnswerOption opt : correctAnswers) {
+            if (opt == null) return false;
+        }
+        return true;
+    }
+
+    public synchronized boolean changeState(GameState newState) {
+        // Blokace přechodu do RESULTS, pokud moderátor nevyplnil vše
+        if (newState == GameState.RESULTS && !areAllAnswersSet()) {
+            System.out.println("--> Nelze vyhlásit výsledky: Nejsou vyplněny všechny odpovědi!");
+            return false;
+        }
+
         this.state = newState;
         if (newState == GameState.RESULTS) {
             recalculateLeaderboard();
         }
+        return true;
     }
 
     public synchronized void resetGame() {
         this.state = GameState.LOBBY;
         this.players.clear();
-        Collections.fill(correctAnswers, AnswerOption.NAT);
+        Collections.fill(correctAnswers, null);
     }
-
-    // --- SPRÁVA OTÁZEK (POVOLENA POUZE V LOBBY) ---
 
     public synchronized void addQuestion(String text) {
         if (state != GameState.LOBBY || text == null || text.isBlank()) return;
         int nextId = questions.stream().mapToInt(Question::id).max().orElse(0) + 1;
         questions.add(new Question(nextId, text.trim()));
-        correctAnswers.add(AnswerOption.NAT);
+        correctAnswers.add(null); // Nová otázka začíná bez vybrané odpovědi
     }
 
     public synchronized void removeQuestion(int index) {
@@ -83,12 +103,15 @@ public class QuizManager {
 
     public synchronized void moveQuestion(int fromIndex, int toIndex) {
         if (state != GameState.LOBBY) return;
-        if (fromIndex < 0 || fromIndex >= questions.size() || toIndex < 0 || toIndex >= questions.size()) return;
+        if (fromIndex < 0 || fromIndex >= questions.size()) return;
+        if (toIndex < 0) toIndex = 0;
+        if (toIndex >= questions.size()) toIndex = questions.size() - 1;
+        if (fromIndex == toIndex) return;
 
         Question q = questions.remove(fromIndex);
-        questions.add(toIndex, q);
-
         AnswerOption ans = correctAnswers.remove(fromIndex);
+
+        questions.add(toIndex, q);
         correctAnswers.add(toIndex, ans);
     }
 
@@ -98,7 +121,8 @@ public class QuizManager {
             int score = 0;
             if (p.submitted() && p.answers() != null) {
                 for (int i = 0; i < questions.size() && i < p.answers().size(); i++) {
-                    if (p.answers().get(i) == correctAnswers.get(i)) {
+                    AnswerOption correct = correctAnswers.get(i);
+                    if (correct != null && p.answers().get(i) == correct) {
                         score++;
                     }
                 }
@@ -126,6 +150,7 @@ public class QuizManager {
             payload.put("questions", questions);
             payload.put("globalOptions", GLOBAL_OPTIONS);
             payload.put("correctAnswers", correctAnswers);
+            payload.put("allAnswersSet", areAllAnswersSet());
             payload.put("players", players.values());
             return mapper.writeValueAsString(payload);
         } catch (Exception e) {

@@ -27,6 +27,9 @@ public class Main {
             config.staticFiles.add("/public");
         }).start(PORT);
 
+        // Lehký endpoint pro UptimeRobot – vrátí jen bleskové "OK"
+        app.get("/health", ctx -> ctx.result("OK").status(200));
+
         // Skrytá URL cesta pro moderátora
         app.get("/admin", ctx -> ctx.redirect("/admin.html"));
 
@@ -72,8 +75,11 @@ public class Main {
                         }
                         case "ADMIN_CHANGE_STATE" -> {
                             if (verifyPin(node)) {
-                                quizManager.changeState(GameState.valueOf(node.path("state").asText()));
-                                broadcastState();
+                                GameState newState = GameState.valueOf(node.path("state").asText());
+                                boolean changed = quizManager.changeState(newState);
+                                if (changed) {
+                                    broadcastState();
+                                }
                             }
                         }
                         case "ADMIN_RESET" -> {

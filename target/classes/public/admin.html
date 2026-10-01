@@ -10,13 +10,50 @@
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
         .font-serif { font-family: 'Playfair Display', serif; }
-        .dragging {
-            opacity: 0.45;
+
+        .dragging-item {
+            opacity: 0.35;
             transform: scale(0.99);
+            background-color: #f5f5f4 !important;
         }
-        .drag-over {
-            border-color: #b45309 !important;
-            background-color: #fef3c7 !important;
+
+        /* Spotify vodicí linka v mezeře mezi kartami */
+        .drop-gap-zone {
+            position: relative;
+            height: 12px;
+            margin: -6px 0;
+            z-index: 10;
+            transition: height 0.15s ease;
+        }
+
+        .drop-gap-zone.active-drop {
+            height: 20px;
+            margin: -2px 0;
+        }
+
+        .drop-gap-zone.active-drop::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 12px;
+            right: 12px;
+            height: 2px;
+            background: #FB7185;
+            border-radius: 9999px;
+            transform: translateY(-50%);
+        }
+
+        /* Dekorační tečka na začátku linky (Spotify Queue detail) */
+        .drop-gap-zone.active-drop::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 6px;
+            width: 6px;
+            height: 6px;
+            background: #FB7185;
+            border-radius: 50%;
+            transform: translateY(-50%);
         }
     </style>
 </head>
@@ -28,17 +65,19 @@
             <span class="text-amber-600 font-bold">⚙</span>
             <span class="font-serif italic font-bold text-stone-800 text-lg">Moderátorský panel – Nat & Anička</span>
         </div>
-        <span class="text-xs bg-stone-100 px-3 py-1 rounded-full text-stone-600 font-mono">Port: 7070</span>
+        <button id="btnLogout" onclick="logoutAdmin()" class="hidden text-xs text-stone-400 hover:text-rose-600 transition">
+            Odhlásit
+        </button>
     </div>
 </header>
 
 <main class="flex-1 flex justify-center p-4 sm:p-6">
     <div class="w-full max-w-5xl space-y-6">
 
-        <!-- Odemčení PINem -->
+        <!-- Odemčení PINem (zobrazí se pouze, pokud PIN není uložen) -->
         <div id="adminLock" class="max-w-xs mx-auto bg-white p-6 rounded-2xl border border-stone-200 shadow-sm text-center space-y-3 mt-10">
             <h3 class="font-serif text-lg">Zadejte PIN moderátora</h3>
-            <input id="adminPinInput" type="password" placeholder="PIN (výchozí 1234)" class="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-center text-sm focus:outline-none">
+            <input id="adminPinInput" type="password" onkeydown="if(event.key === 'Enter') unlockAdmin()" placeholder="PIN (výchozí 1234)" class="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-center text-sm focus:outline-none">
             <button onclick="unlockAdmin()" class="w-full py-2 bg-stone-800 text-stone-50 rounded-xl text-xs font-semibold hover:bg-stone-900 transition">Odemknout panel</button>
         </div>
 
@@ -49,11 +88,13 @@
                     <span class="text-[10px] uppercase font-bold text-stone-400">Průběh kvízu</span>
                     <h2 class="font-serif text-xl">Stav: <span id="adminStateBadge" class="text-amber-800 font-bold">LOBBY</span></h2>
                 </div>
-                <div class="flex flex-wrap gap-2">
+                <div class="flex flex-wrap items-center gap-2">
                     <button onclick="showQr()" class="px-3 py-2 bg-stone-100 hover:bg-stone-200 border border-stone-200 rounded-xl text-xs font-medium transition">📷 QR Kód pro stoly</button>
                     <button id="btnAdminStart" onclick="setAdminState('QUESTIONNAIRE')" class="px-4 py-2 bg-stone-800 hover:bg-stone-900 text-stone-50 rounded-xl text-xs font-semibold transition">Spustit otázky</button>
-                    <button id="btnAdminClose" onclick="setAdminState('EVALUATION')" class="hidden px-4 py-2 bg-amber-700 hover:bg-amber-800 text-white rounded-xl text-xs font-semibold transition">Uzavřít hlasování</button>
-                    <button id="btnAdminResults" onclick="setAdminState('RESULTS')" class="hidden px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold transition">Vyhlásit vítěze</button>
+
+                    <!-- Dynamické tlačítko: Uzavřít hlasování -> Vyhlásit vítěze -->
+                    <button id="btnAdminAction" class="hidden px-4 py-2 rounded-xl text-xs font-semibold transition"></button>
+
                     <button onclick="resetGame()" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-medium transition">Reset hry</button>
                 </div>
             </div>
@@ -61,32 +102,33 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="md:col-span-2 bg-white border border-stone-200 rounded-2xl p-5 shadow-sm space-y-4">
 
-                    <!-- Box pro otázky a odpovědi -->
                     <div id="adminCorrectAnswersBox">
                         <div class="flex justify-between items-start mb-2">
                             <div>
                                 <h3 class="font-serif text-lg">Otázky a správné odpovědi</h3>
-                                <p class="text-xs text-stone-400" id="adminHelpText">Ve fázi Lobby můžete pořadí měnit přetažením karty (drag & drop).</p>
+                                <p class="text-xs text-stone-400" id="adminHelpText"></p>
+                            </div>
+                            <div id="answersProgressBadge" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-stone-100 text-stone-600">
+                                Vyplněno: 0 / 0
                             </div>
                         </div>
 
-                        <!-- Formulář pro přidání otázky (v LOBBY) -->
+                        <!-- Přidání nové otázky (v LOBBY) -->
                         <div id="addQuestionForm" class="p-3 mb-4 bg-stone-50 border border-dashed border-stone-300 rounded-xl flex gap-2">
-                            <input id="newQuestionInput" type="text" placeholder="Znění nové otázky (např. Kdo je větší romantik?)" class="flex-1 px-3 py-1.5 text-xs bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500">
-                            <button onclick="addQuestion()" class="px-3 py-1.5 bg-stone-800 hover:bg-stone-900 text-stone-50 rounded-lg text-xs font-semibold whitespace-nowrap transition">+ Přidat</button>
+                            <input id="newQuestionInput" type="text" onkeydown="if(event.key === 'Enter') { event.preventDefault(); addQuestion(); }" placeholder="Znění nové otázky (např. Kdo je větší spáč?)" class="flex-1 px-3 py-1.5 text-xs bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500">
+                            <button onclick="addQuestion()" class="px-3 py-1.5 bg-stone-800 hover:bg-stone-900 text-stone-50 rounded-lg text-xs font-semibold whitespace-nowrap transition">+ Přidat otázku</button>
                         </div>
 
-                        <div id="adminQuestionsList" class="space-y-3"></div>
+                        <!-- Seznam otázek s mezerovými drop zónami -->
+                        <div id="adminQuestionsList" class="space-y-0"></div>
                     </div>
 
-                    <!-- Box s výsledky -->
                     <div id="adminResultsBox" class="hidden">
                         <h3 class="font-serif text-lg mb-3">Konečné pořadí svatebčanů</h3>
                         <div id="adminLeaderboardList" class="divide-y divide-stone-100"></div>
                     </div>
                 </div>
 
-                <!-- Boční sloupec: Připojení hosté -->
                 <div class="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">
                     <h3 class="font-serif text-base border-b border-stone-100 pb-2 mb-3">Připojení hosté (<span id="adminPlayersCount">0</span>)</h3>
                     <div id="adminPlayersList" class="space-y-1.5 max-h-96 overflow-y-auto"></div>
@@ -114,9 +156,19 @@
         { code: 'OBA', label: 'Oba' }
     ];
 
-    let adminPin = '';
+    // Načtení zapamatovaného PINu z localStorage
+    let adminPin = localStorage.getItem('wedding_admin_pin') || '';
     let gameState = { state: 'LOBBY', questions: [], correctAnswers: [], players: [] };
-    let draggedQuestionIndex = null;
+    let draggedIndex = null;
+
+    // Automatické odemčení, pokud byl PIN zadán dříve
+    if (adminPin === "1234") {
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById('adminLock').classList.add('hidden');
+            document.getElementById('adminDashboard').classList.remove('hidden');
+            document.getElementById('btnLogout').classList.remove('hidden');
+        });
+    }
 
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(`${protocol}//${location.host}/ws`);
@@ -134,12 +186,23 @@
         const pin = document.getElementById('adminPinInput').value;
         if (pin === "1234") {
             adminPin = pin;
+            localStorage.setItem('wedding_admin_pin', pin);
             document.getElementById('adminLock').classList.add('hidden');
             document.getElementById('adminDashboard').classList.remove('hidden');
+            document.getElementById('btnLogout').classList.remove('hidden');
             renderAdminUI();
         } else {
             alert("Špatný PIN!");
         }
+    }
+
+    function logoutAdmin() {
+        localStorage.removeItem('wedding_admin_pin');
+        adminPin = '';
+        document.getElementById('adminLock').classList.remove('hidden');
+        document.getElementById('adminDashboard').classList.add('hidden');
+        document.getElementById('btnLogout').classList.add('hidden');
+        document.getElementById('adminPinInput').value = '';
     }
 
     function setAdminState(newState) {
@@ -170,55 +233,110 @@
         }
     }
 
-    // --- Drag & Drop Handlery ---
-    function handleDragStart(e, index) {
+    // --- SPOTIFY-LIKE DRAG & DROP MEZI OTÁZKAMI ---
+    function onDragStart(e, index) {
         if (gameState.state !== 'LOBBY') return;
-        draggedQuestionIndex = index;
+        draggedIndex = index;
         e.dataTransfer.effectAllowed = 'move';
-        e.currentTarget.classList.add('dragging');
+        e.currentTarget.classList.add('dragging-item');
     }
 
-    function handleDragOver(e) {
-        if (gameState.state !== 'LOBBY') return;
+    function onGapDragOver(e, slotIndex) {
+        if (gameState.state !== 'LOBBY' || draggedIndex === null) return;
+
+        if (slotIndex === draggedIndex || slotIndex === draggedIndex + 1) {
+            return;
+        }
+
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        const item = e.currentTarget;
-        item.classList.add('drag-over');
+
+        clearGapHighlights();
+        e.currentTarget.classList.add('active-drop');
     }
 
-    function handleDragLeave(e) {
-        e.currentTarget.classList.remove('drag-over');
+    function onGapDragLeave(e) {
+        e.currentTarget.classList.remove('active-drop');
     }
 
-    function handleDrop(e, targetIndex) {
-        if (gameState.state !== 'LOBBY') return;
+    function onGapDrop(e, slotIndex) {
         e.preventDefault();
-        e.currentTarget.classList.remove('drag-over');
+        clearGapHighlights();
 
-        if (draggedQuestionIndex !== null && draggedQuestionIndex !== targetIndex) {
-            sendWs({
-                type: 'ADMIN_MOVE_QUESTION',
-                from: draggedQuestionIndex,
-                to: targetIndex,
-                pin: adminPin
-            });
+        if (draggedIndex === null) return;
+
+        if (slotIndex === draggedIndex || slotIndex === draggedIndex + 1) {
+            draggedIndex = null;
+            return;
         }
-        draggedQuestionIndex = null;
+
+        let targetIndex = slotIndex;
+        if (draggedIndex < slotIndex) {
+            targetIndex = slotIndex - 1;
+        }
+
+        sendWs({
+            type: 'ADMIN_MOVE_QUESTION',
+            from: draggedIndex,
+            to: targetIndex,
+            pin: adminPin
+        });
+
+        draggedIndex = null;
     }
 
-    function handleDragEnd(e) {
-        e.currentTarget.classList.remove('dragging');
-        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-        draggedQuestionIndex = null;
+    function onDragEnd() {
+        clearGapHighlights();
+        document.querySelectorAll('.dragging-item').forEach(el => el.classList.remove('dragging-item'));
+        draggedIndex = null;
+    }
+
+    function clearGapHighlights() {
+        document.querySelectorAll('.drop-gap-zone').forEach(el => el.classList.remove('active-drop'));
     }
 
     function renderAdminUI() {
         if (!adminPin) return;
 
+        const totalQ = gameState.questions.length;
+        const filledCount = gameState.correctAnswers.filter(a => a !== null && a !== undefined).length;
+        const allFilled = totalQ > 0 && filledCount === totalQ;
+
         document.getElementById('adminStateBadge').innerText = gameState.state;
         document.getElementById('btnAdminStart').classList.toggle('hidden', gameState.state !== 'LOBBY');
-        document.getElementById('btnAdminClose').classList.toggle('hidden', gameState.state !== 'QUESTIONNAIRE');
-        document.getElementById('btnAdminResults').classList.toggle('hidden', gameState.state !== 'EVALUATION');
+
+        // Dynamická změna tlačítka: "Uzavřít hlasování" -> "Vyhlásit vítěze"
+        const btnAction = document.getElementById('btnAdminAction');
+        if (gameState.state === 'QUESTIONNAIRE') {
+            btnAction.classList.remove('hidden');
+            btnAction.disabled = false;
+            btnAction.className = "px-4 py-2 bg-amber-700 hover:bg-amber-800 text-white rounded-xl text-xs font-semibold transition cursor-pointer shadow-sm";
+            btnAction.innerText = "Uzavřít hlasování";
+            btnAction.onclick = () => setAdminState('EVALUATION');
+        } else if (gameState.state === 'EVALUATION') {
+            btnAction.classList.remove('hidden');
+            if (allFilled) {
+                btnAction.disabled = false;
+                btnAction.className = "px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold transition cursor-pointer shadow-sm";
+                btnAction.innerText = "Vyhlásit vítěze ✓";
+                btnAction.onclick = () => setAdminState('RESULTS');
+            } else {
+                btnAction.disabled = true;
+                btnAction.className = "px-4 py-2 bg-stone-200 text-stone-400 rounded-xl text-xs font-semibold cursor-not-allowed";
+                btnAction.innerText = `Vyhlásit vítěze (${filledCount}/${totalQ})`;
+                btnAction.onclick = null;
+            }
+        } else {
+            btnAction.classList.add('hidden');
+            btnAction.onclick = null;
+        }
+
+        // Počítadlo odpovědí
+        const badge = document.getElementById('answersProgressBadge');
+        badge.innerText = `Vyplněno: ${filledCount} / ${totalQ}`;
+        badge.className = allFilled
+            ? "text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200"
+            : "text-xs font-semibold px-2.5 py-1 rounded-full bg-stone-100 text-stone-600 border border-stone-200";
 
         document.getElementById('adminCorrectAnswersBox').classList.toggle('hidden', gameState.state === 'RESULTS');
         document.getElementById('adminResultsBox').classList.toggle('hidden', gameState.state !== 'RESULTS');
@@ -226,47 +344,80 @@
         const isLobby = gameState.state === 'LOBBY';
         document.getElementById('addQuestionForm').classList.toggle('hidden', !isLobby);
         document.getElementById('adminHelpText').innerText = isLobby
-            ? "Pořadí můžete měnit uchopením a přetažením karty."
-            : "Klikněte na možnost podle toho, jak Nat a Anička odpověděli:";
+            ? "Otázky můžete upravovat nebo přetahovat v mezerách."
+            : (allFilled ? "Všechny odpovědi jsou zadány. Můžete vyhlásit vítěze." : "Klikněte na možnost podle toho, co novomanželé zvedli (nutno vyplnit vše):");
 
-        // Render otázek s podporou drag & drop
+        // Render otázek střídaných s drop zónami v mezerách
         let qHtml = '';
+
         gameState.questions.forEach((q, qIdx) => {
+            const currentAns = gameState.correctAnswers[qIdx];
+
+            if (isLobby) {
+                qHtml += `
+            <div
+              class="drop-gap-zone"
+              ondragover="onGapDragOver(event, ${qIdx})"
+              ondragleave="onGapDragLeave(event)"
+              ondrop="onGapDrop(event, ${qIdx})"
+            ></div>`;
+            }
+
             qHtml += `
           <div
             ${isLobby ? `
               draggable="true"
-              ondragstart="handleDragStart(event, ${qIdx})"
-              ondragover="handleDragOver(event)"
-              ondragleave="handleDragLeave(event)"
-              ondrop="handleDrop(event, ${qIdx})"
-              ondragend="handleDragEnd(event)"
+              ondragstart="onDragStart(event, ${qIdx})"
+              ondragend="onDragEnd()"
             ` : ''}
-            class="p-3 bg-stone-50 border border-stone-200 rounded-xl space-y-2 transition-all ${isLobby ? 'cursor-grab active:cursor-grabbing hover:border-amber-300' : ''}"
+            class="p-3 bg-white border border-stone-200/90 rounded-xl space-y-2 transition-all ${
+                isLobby ? 'cursor-grab active:cursor-grabbing hover:border-stone-300 shadow-sm' : ''
+            }"
           >
-            <div class="flex items-center justify-between gap-2">
-              <div class="flex items-center gap-2">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5 flex-1 min-w-0">
                 ${isLobby ? `
-                  <span class="text-stone-400 select-none text-base font-bold tracking-tight px-1" title="Přetáhněte pro změnu pořadí">⠿</span>
+                  <div class="text-stone-300 hover:text-stone-500 select-none p-1 shrink-0" title="Uchopit a přetáhnout">
+                    <svg class="w-4 h-4 fill-current" viewBox="0 0 16 16">
+                      <path d="M2.5 12a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm-10-5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/>
+                    </svg>
+                  </div>
                 ` : ''}
-                <span class="text-xs font-semibold text-stone-800 leading-snug">${qIdx + 1}. ${q.text}</span>
+
+                <span class="text-xs font-bold text-stone-400 font-mono w-4 shrink-0">${qIdx + 1}.</span>
+                <span class="text-xs font-semibold text-stone-800 truncate select-none">${q.text}</span>
               </div>
 
               ${isLobby ? `
-                <button onclick="removeQuestion(${qIdx})" class="w-6 h-6 rounded flex items-center justify-center text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 shrink-0" title="Smazat otázku">✕</button>
+                <button onclick="removeQuestion(${qIdx})" class="w-6 h-6 rounded flex items-center justify-center text-xs font-bold text-rose-500 hover:bg-rose-50 border border-rose-200 shrink-0" title="Smazat">✕</button>
               ` : ''}
             </div>
 
-            <!-- Tlačítka pro nastavení správné odpovědi -->
-            <div class="grid grid-cols-3 gap-2 pt-1">
+            <!-- Tlačítka pro správnou odpověď -->
+            <div class="grid grid-cols-3 gap-2 pt-2 border-t border-stone-100">
               ${OPTIONS.map(opt => `
-                <button onclick="setAdminCorrect(${qIdx}, '${opt.code}')" class="py-1.5 px-2 rounded-lg text-xs font-semibold border text-center transition ${gameState.correctAnswers[qIdx] === opt.code ? 'bg-stone-800 text-stone-50 border-stone-800' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-100'}">
+                <button type="button" onclick="setAdminCorrect(${qIdx}, '${opt.code}')" class="py-1.5 px-2 rounded-lg text-xs font-semibold border text-center transition ${
+                currentAns === opt.code
+                    ? 'bg-stone-800 text-stone-50 border-stone-800 shadow-sm'
+                    : 'bg-stone-50 border-stone-200/80 text-stone-600 hover:bg-stone-100 hover:border-stone-300'
+            }">
                   ${opt.label}
                 </button>
               `).join('')}
             </div>
           </div>`;
         });
+
+        if (isLobby && totalQ > 0) {
+            qHtml += `
+          <div
+            class="drop-gap-zone"
+            ondragover="onGapDragOver(event, ${totalQ})"
+            ondragleave="onGapDragLeave(event)"
+            ondrop="onGapDrop(event, ${totalQ})"
+          ></div>`;
+        }
+
         document.getElementById('adminQuestionsList').innerHTML = qHtml;
 
         // Žebříček
@@ -276,7 +427,7 @@
             lbHtml += `
           <div class="py-2.5 flex justify-between items-center text-sm">
             <span class="font-medium">#${p.rank || '-'} ${p.name}</span>
-            <span class="font-bold text-xs bg-stone-100 border border-stone-200 px-2.5 py-1 rounded-lg">${p.score || 0} / ${gameState.questions.length} b.</span>
+            <span class="font-bold text-xs bg-stone-100 border border-stone-200 px-2.5 py-1 rounded-lg">${p.score || 0} / ${totalQ} b.</span>
           </div>`;
         });
         document.getElementById('adminLeaderboardList').innerHTML = lbHtml;
