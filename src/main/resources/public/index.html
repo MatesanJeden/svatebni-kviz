@@ -7,13 +7,32 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; }
-        .font-serif { font-family: 'Playfair Display', serif; }
+        html, body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            touch-action: pan-y;
+            -webkit-text-size-adjust: 100%;
+            overscroll-behavior-y: none;
+        }
+
+        .font-serif {
+            font-family: 'Playfair Display', serif;
+        }
+
+        /* Plynulý momentum scroll pro iOS Safari */
+        .ios-smooth-scroll {
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-y: contain;
+            touch-action: pan-y;
+        }
+
+        /* Všechny inputy na iOS musí mít minimálně 16px, aby Safari nezazoomovalo */
+        input[type="text"] {
+            font-size: 16px !important;
+        }
     </style>
 </head>
 <body class="bg-[#faf8f5] text-stone-800 min-h-screen flex flex-col selection:bg-rose-100">
 
-<!-- Horní lišta bez jakýchkoliv ovládacích prvků -->
 <header class="bg-white/90 backdrop-blur border-b border-stone-200/80 sticky top-0 z-30 px-4 py-3">
     <div class="max-w-md mx-auto flex items-center justify-center gap-2">
         <span class="text-rose-400 text-lg">♥</span>
@@ -36,8 +55,8 @@
                     <h2 class="font-serif text-xl">Vítejte u stolu!</h2>
                     <p class="text-xs text-stone-500">Jak dobře znáte novomanžele? Zadejte jméno:</p>
                 </div>
-                <input id="playerNameInput" type="text" placeholder="např. Babička Věra" class="w-full px-4 py-3 bg-[#faf9f6] border border-stone-300 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20">
-                <button onclick="joinGame()" class="w-full py-3.5 bg-stone-800 hover:bg-stone-900 text-stone-50 rounded-2xl font-medium text-sm transition shadow-md">Připojit se ke hře</button>
+                <input id="playerNameInput" type="text" onkeydown="if(event.key === 'Enter') joinGame('playerNameInput')" placeholder="např. Babička Věra" class="w-full px-4 py-3 bg-[#faf9f6] border border-stone-300 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20">
+                <button onclick="joinGame('playerNameInput')" class="w-full py-3.5 bg-stone-800 hover:bg-stone-900 text-stone-50 rounded-2xl font-medium text-sm transition shadow-md">Připojit se ke hře</button>
             </div>
             <div id="pLobbyWaiting" class="hidden text-center py-6 space-y-3">
                 <div class="w-14 h-14 bg-rose-50 text-rose-400 rounded-full flex items-center justify-center mx-auto text-xl border border-rose-100">♥</div>
@@ -51,14 +70,29 @@
 
         <!-- Fáze: QUESTIONNAIRE -->
         <div id="pQuestions" class="hidden py-3 flex-1 flex flex-col">
-            <div id="qFormContainer" class="flex-1 flex flex-col">
-                <div class="text-xs text-stone-500 mb-3 bg-stone-50 p-2.5 rounded-xl border border-stone-100 flex justify-between">
-                    <span>Hráč: <strong id="qPlayerName" class="text-stone-700"></strong></span>
-                    <span id="qAnswerCount">0 zodpovězeno</span>
+            <!-- Pozdní přihlášení (pokud přišel až v průběhu) -->
+            <div id="qLateJoinForm" class="hidden py-6 space-y-4">
+                <div class="text-center space-y-1">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Kvíz právě probíhá
+            </span>
+                    <h2 class="font-serif text-xl pt-2">Zapojte se do hry!</h2>
+                    <p class="text-xs text-stone-500">Napište své jméno a můžete rovnou začít tipovat:</p>
                 </div>
-                <div id="questionsList" class="space-y-4 overflow-y-auto max-h-[55vh] pr-1"></div>
+                <input id="latePlayerNameInput" type="text" onkeydown="if(event.key === 'Enter') joinGame('latePlayerNameInput')" placeholder="např. Svědek Petr" class="w-full px-4 py-3 bg-[#faf9f6] border border-stone-300 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20">
+                <button onclick="joinGame('latePlayerNameInput')" class="w-full py-3.5 bg-stone-800 hover:bg-stone-900 text-stone-50 rounded-2xl font-medium text-sm transition shadow-md">Začít tipovat</button>
+            </div>
+
+            <!-- Samotný dotazník s otázkami -->
+            <div id="qFormContainer" class="hidden flex-1 flex flex-col">
+                <div class="text-xs text-stone-500 mb-3 bg-stone-50 p-2.5 rounded-xl border border-stone-100 flex justify-between items-center">
+                    <span>Hráč: <strong id="qPlayerName" class="text-stone-700"></strong></span>
+                    <span id="qAnswerCount" class="font-medium text-amber-800">0 zodpovězeno</span>
+                </div>
+                <div id="questionsList" class="space-y-4 overflow-y-auto max-h-[58dvh] pr-1 ios-smooth-scroll flex-1"></div>
                 <button id="btnSubmitAnswers" onclick="submitAnswers()" disabled class="mt-4 w-full py-3.5 rounded-2xl font-medium text-sm bg-stone-200 text-stone-400 cursor-not-allowed transition shadow-md">Odevzdat odpovědi</button>
             </div>
+
             <div id="qSubmittedMsg" class="hidden text-center py-10 space-y-3">
                 <div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl border border-emerald-100">✓</div>
                 <h3 class="font-serif text-xl">Máte odevzdáno!</h3>
@@ -81,7 +115,7 @@
                 <h2 id="resRank" class="font-serif text-3xl font-bold text-stone-800"># - . MÍSTO</h2>
                 <p id="resScore" class="text-xs text-stone-600 font-medium mt-1"></p>
             </div>
-            <div id="resSummary" class="space-y-2 overflow-y-auto max-h-[42vh] pr-1"></div>
+            <div id="resSummary" class="space-y-2 overflow-y-auto max-h-[45dvh] pr-1 ios-smooth-scroll"></div>
         </div>
     </div>
 </main>
@@ -92,6 +126,14 @@
         { code: 'ANICKA', label: 'Anička' },
         { code: 'OBA', label: 'Oba' }
     ];
+
+    // Blokace pinch-to-zoom v iOS Safari
+    document.addEventListener('gesturestart', function (e) {
+        e.preventDefault();
+    });
+    document.addEventListener('dblclick', function (e) {
+        e.preventDefault();
+    });
 
     let myId = localStorage.getItem('wedding_pid');
     if (!myId) {
@@ -105,15 +147,27 @@
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(`${protocol}//${location.host}/ws`);
 
+    ws.onopen = () => {
+        // Pokud už prohlížeč má uložené jméno hráče, automaticky ho znovu připojíme
+        const savedName = localStorage.getItem('wedding_pname');
+        if (savedName) {
+            sendWs({ type: 'JOIN', id: myId, name: savedName });
+        }
+    };
+
     ws.onmessage = (event) => {
         gameState = JSON.parse(event.data);
 
         const me = gameState.players.find(p => p.id === myId);
-        // Pokud server zresetoval hru do LOBBY a hráč už v databázi není
+
+        // Pokud moderátor hru resetoval do LOBBY a hráč už v seznamu není
         if (gameState.state === 'LOBBY' && !me) {
             myAnswers = {};
+            localStorage.removeItem('wedding_pname');
             const input = document.getElementById('playerNameInput');
             if (input) input.value = '';
+            const lateInput = document.getElementById('latePlayerNameInput');
+            if (lateInput) lateInput.value = '';
             const btn = document.getElementById('btnSubmitAnswers');
             if (btn) {
                 btn.disabled = true;
@@ -128,9 +182,14 @@
         ws.send(JSON.stringify(data));
     }
 
-    function joinGame() {
-        const name = document.getElementById('playerNameInput').value.trim();
-        if (!name) return;
+    function joinGame(inputId) {
+        const input = document.getElementById(inputId);
+        const name = input ? input.value.trim() : '';
+        if (!name) {
+            if (input) input.focus();
+            return;
+        }
+        localStorage.setItem('wedding_pname', name);
         sendWs({ type: 'JOIN', id: myId, name: name });
     }
 
@@ -142,7 +201,7 @@
         const btn = document.getElementById('btnSubmitAnswers');
         if (count === gameState.questions.length) {
             btn.disabled = false;
-            btn.className = "mt-4 w-full py-3.5 rounded-2xl font-medium text-sm bg-emerald-700 hover:bg-emerald-800 text-white transition shadow-md";
+            btn.className = "mt-4 w-full py-3.5 rounded-2xl font-medium text-sm bg-emerald-700 hover:bg-emerald-800 text-white transition shadow-md cursor-pointer";
         }
     }
 
@@ -159,30 +218,41 @@
         document.getElementById('pEvaluation').classList.toggle('hidden', gameState.state !== 'EVALUATION');
         document.getElementById('pResults').classList.toggle('hidden', gameState.state !== 'RESULTS');
 
-        // Lobby
-        if (me) {
-            document.getElementById('pLobbyForm').classList.add('hidden');
-            document.getElementById('pLobbyWaiting').classList.remove('hidden');
-            document.getElementById('lobbyGreeting').innerText = `Jste ve hře, ${me.name}!`;
-        } else {
-            document.getElementById('pLobbyForm').classList.remove('hidden');
-            document.getElementById('pLobbyWaiting').classList.add('hidden');
+        // Fáze LOBBY
+        if (gameState.state === 'LOBBY') {
+            if (me) {
+                document.getElementById('pLobbyForm').classList.add('hidden');
+                document.getElementById('pLobbyWaiting').classList.remove('hidden');
+                document.getElementById('lobbyGreeting').innerText = `Jste ve hře, ${me.name}!`;
+            } else {
+                document.getElementById('pLobbyForm').classList.remove('hidden');
+                document.getElementById('pLobbyWaiting').classList.add('hidden');
+            }
         }
 
-        // Otázky
+        // Fáze QUESTIONNAIRE
         if (gameState.state === 'QUESTIONNAIRE') {
-            document.getElementById('qPlayerName').innerText = me ? me.name : 'Host';
-            if (me && me.submitted) {
+            if (!me) {
+                // Uživatel přišel až po spuštění a ještě nezadal jméno
+                document.getElementById('qLateJoinForm').classList.remove('hidden');
+                document.getElementById('qFormContainer').classList.add('hidden');
+                document.getElementById('qSubmittedMsg').classList.add('hidden');
+            } else if (me.submitted) {
+                // Uživatel už odevzdal
+                document.getElementById('qLateJoinForm').classList.add('hidden');
                 document.getElementById('qFormContainer').classList.add('hidden');
                 document.getElementById('qSubmittedMsg').classList.remove('hidden');
             } else {
+                // Uživatel je přihlášen a vyplňuje otázky
+                document.getElementById('qLateJoinForm').classList.add('hidden');
                 document.getElementById('qFormContainer').classList.remove('hidden');
                 document.getElementById('qSubmittedMsg').classList.add('hidden');
+                document.getElementById('qPlayerName').innerText = me.name;
                 renderQuestionsList();
             }
         }
 
-        // Výsledky
+        // Fáze RESULTS
         if (gameState.state === 'RESULTS') {
             if (me) {
                 document.getElementById('resRank').innerText = `#${me.rank || '-'} . MÍSTO`;
@@ -192,8 +262,8 @@
                 gameState.questions.forEach((q, idx) => {
                     const userAns = me.answers ? me.answers[idx] : null;
                     const correctAns = gameState.correctAnswers[idx];
-                    const isRight = userAns === correctAns;
-                    const userLabel = OPTIONS.find(o => o.code === userAns)?.label || '-';
+                    const isRight = userAns !== null && userAns === correctAns;
+                    const userLabel = OPTIONS.find(o => o.code === userAns)?.label || 'Neodpovězeno';
                     const correctLabel = OPTIONS.find(o => o.code === correctAns)?.label || '-';
 
                     html += `
@@ -208,6 +278,10 @@
               </div>`;
                 });
                 document.getElementById('resSummary').innerHTML = html;
+            } else {
+                document.getElementById('resRank').innerText = "KVÍZ SKONČIL";
+                document.getElementById('resScore').innerText = "Do tohoto kola jste se nestihli zapojit.";
+                document.getElementById('resSummary').innerHTML = "";
             }
         }
     }

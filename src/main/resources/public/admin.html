@@ -65,9 +65,6 @@
             <span class="text-amber-600 font-bold">⚙</span>
             <span class="font-serif italic font-bold text-stone-800 text-lg">Moderátorský panel – Nat & Anička</span>
         </div>
-        <button id="btnLogout" onclick="logoutAdmin()" class="hidden text-xs text-stone-400 hover:text-rose-600 transition">
-            Odhlásit
-        </button>
     </div>
 </header>
 
@@ -166,7 +163,6 @@
         document.addEventListener("DOMContentLoaded", () => {
             document.getElementById('adminLock').classList.add('hidden');
             document.getElementById('adminDashboard').classList.remove('hidden');
-            document.getElementById('btnLogout').classList.remove('hidden');
         });
     }
 
@@ -189,20 +185,10 @@
             localStorage.setItem('wedding_admin_pin', pin);
             document.getElementById('adminLock').classList.add('hidden');
             document.getElementById('adminDashboard').classList.remove('hidden');
-            document.getElementById('btnLogout').classList.remove('hidden');
             renderAdminUI();
         } else {
             alert("Špatný PIN!");
         }
-    }
-
-    function logoutAdmin() {
-        localStorage.removeItem('wedding_admin_pin');
-        adminPin = '';
-        document.getElementById('adminLock').classList.remove('hidden');
-        document.getElementById('adminDashboard').classList.add('hidden');
-        document.getElementById('btnLogout').classList.add('hidden');
-        document.getElementById('adminPinInput').value = '';
     }
 
     function setAdminState(newState) {

@@ -28,8 +28,7 @@ public class QuizManager {
             new Question(10, "Kdo je větší romantik?"),
             new Question(11, "Kdo se zamiloval jako první?"),
             new Question(12, "Kdo byl nervóznější při první schůzce?"),
-            new Question(13, "Kdo jako první začal mluvit o svatbě?"),
-            new Question(14, "Kdo má toho druhého opravdu rád?")
+            new Question(13, "Kdo jako první začal mluvit o svatbě?")
     ));
 
     public static final List<String> GLOBAL_OPTIONS = List.of(
