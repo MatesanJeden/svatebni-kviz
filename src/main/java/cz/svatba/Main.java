@@ -111,6 +111,34 @@ public class Main {
                                 broadcastState();
                             }
                         }
+                        case "ADMIN_RESTORE" -> {
+                            if (verifyPin(node)) {
+                                JsonNode data = node.path("data");
+                                GameState st = GameState.valueOf(data.path("state").asText("LOBBY"));
+                                
+                                List<Question> qs = new ArrayList<>();
+                                for (JsonNode qn : data.path("questions")) {
+                                    qs.add(mapper.treeToValue(qn, Question.class));
+                                }
+
+                                List<AnswerOption> ans = new ArrayList<>();
+                                for (JsonNode an : data.path("correctAnswers")) {
+                                    if (an.isNull()) {
+                                        ans.add(null);
+                                    } else {
+                                        ans.add(AnswerOption.valueOf(an.asText()));
+                                    }
+                                }
+
+                                List<Player> pls = new ArrayList<>();
+                                for (JsonNode pn : data.path("players")) {
+                                    pls.add(mapper.treeToValue(pn, Player.class));
+                                }
+
+                                quizManager.restoreFromBackup(st, qs, ans, pls);
+                                broadcastState();
+                            }
+                        }
                     }
                 } catch (Exception e) {
                     e.printStackTrace();

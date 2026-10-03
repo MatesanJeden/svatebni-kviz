@@ -29,6 +29,17 @@
         input[type="text"] {
             font-size: 16px !important;
         }
+
+        @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        20%, 60% { transform: translateX(-6px); }
+        40%, 80% { transform: translateX(6px); }
+        }
+        .shake-highlight {
+        animation: shake 0.4s ease-in-out;
+        border-color: #f43f5e !important; /* Rose-500 */
+        box-shadow: 0 0 0 2px rgba(244, 63, 94, 0.25) !important;
+        }
     </style>
 </head>
 <body class="bg-[#faf8f5] text-stone-800 min-h-screen flex flex-col selection:bg-rose-100">
@@ -108,8 +119,17 @@
                     <span id="qAnswerCount" class="font-medium text-amber-800">0 zodpovězeno</span>
                 </div>
                 <div id="questionsList" class="space-y-4 overflow-y-auto max-h-[58dvh] pr-1 ios-smooth-scroll flex-1"></div>
-                <button id="btnSubmitAnswers" onclick="submitAnswers()" disabled class="mt-4 w-full py-3.5 rounded-2xl font-medium text-sm bg-stone-200 text-stone-400 cursor-not-allowed transition shadow-md">Odevzdat odpovědi</button>
-            </div>
+<button 
+  id="btnSubmitAnswers" 
+  type="button" 
+  onclick="submitAnswers()" 
+  class="mt-4 w-full py-3.5 rounded-2xl font-semibold text-sm bg-stone-800 hover:bg-stone-900 text-stone-50 transition shadow-md shrink-0 active:scale-[0.99] touch-manipulation cursor-pointer"
+>
+  Odevzdat odpovědi
+</button>
+
+<!-- Nenápadná chybová hláška přímo pod tlačítkem -->
+<div id="submitValidationMsg" class="hidden text-center text-xs font-semibold text-rose-600 mt-2.5 transition"></div>            </div>
 
             <div id="qSubmittedMsg" class="hidden text-center py-10 space-y-3">
                 <div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl border border-emerald-100">✓</div>
@@ -211,22 +231,99 @@
         sendWs({ type: 'JOIN', id: myId, name: name });
     }
 
-    function selectOption(qIdx, optCode) {
-        myAnswers[qIdx] = optCode;
-        renderQuestionsList();
-        const count = Object.keys(myAnswers).length;
-        document.getElementById('qAnswerCount').innerText = `${count} / ${gameState.questions.length} zodpovězeno`;
-        const btn = document.getElementById('btnSubmitAnswers');
-        if (count === gameState.questions.length) {
-            btn.disabled = false;
-            btn.className = "mt-4 w-full py-3.5 rounded-2xl font-medium text-sm bg-emerald-700 hover:bg-emerald-800 text-white transition shadow-md cursor-pointer";
-        }
+    // Při označení odpovědi jen vizuálně přebarvíme a smažeme případné červené zvýraznění
+function selectOption(qIdx, optCode) {
+  myAnswers[qIdx] = optCode;
+
+  const qContainer = document.getElementById(`q-box-${qIdx}`);
+  if (qContainer) {
+    // Odstraníme chybové zvýraznění, pokud existovalo
+    qContainer.classList.remove('shake-highlight');
+
+    const buttons = qContainer.querySelectorAll('button[data-opt]');
+    buttons.forEach(btn => {
+      const code = btn.getAttribute('data-opt');
+      if (code === optCode) {
+        btn.className = "py-2.5 px-1 rounded-xl text-xs font-semibold border text-center transition flex items-center justify-center gap-1 bg-stone-800 text-stone-50 border-stone-800 shadow-sm";
+      } else {
+        btn.className = "py-2.5 px-1 rounded-xl text-xs font-semibold border text-center transition flex items-center justify-center gap-1 bg-white hover:bg-stone-50 border-stone-200 text-stone-700";
+      }
+    });
+  }
+
+  // Aktualizace počítadla
+  const total = gameState.questions ? gameState.questions.length : 0;
+  const answered = Object.keys(myAnswers).length;
+  const countEl = document.getElementById('qAnswerCount');
+  if (countEl) {
+    countEl.innerText = `${answered} / ${total} zodpovězeno`;
+  }
+
+  // Pokud svítila chybová hláška a hráč právě odpověděl, zkontrolujeme ji
+  const msgEl = document.getElementById('submitValidationMsg');
+  if (msgEl && answered === total) {
+    msgEl.classList.add('hidden');
+  }
+}
+
+// Odeslání s validací, scrollem a upozorněním
+function submitAnswers() {
+  const total = gameState.questions ? gameState.questions.length : 0;
+  const missingIndices = [];
+
+  for (let i = 0; i < total; i++) {
+    if (!myAnswers[i]) {
+      missingIndices.push(i);
+    }
+  }
+
+  const msgEl = document.getElementById('submitValidationMsg');
+
+  // Pokud chybí odpovědi:
+  if (missingIndices.length > 0) {
+    const firstMissing = missingIndices[0];
+    const missingNumbers = missingIndices.map(i => i + 1).join(', ');
+
+    // 1. Zobrazíme textové upozornění
+    if (msgEl) {
+      msgEl.innerText = missingIndices.length === 1 
+        ? `Zbývá zodpovědět otázku č. ${missingNumbers}` 
+        : `Zbývá vyplnit otázky: ${missingNumbers}`;
+      msgEl.classList.remove('hidden');
     }
 
-    function submitAnswers() {
-        const answersArr = gameState.questions.map((_, i) => myAnswers[i]);
-        sendWs({ type: 'SUBMIT', id: myId, answers: answersArr });
+    // 2. Najdeme první chybějící otázku
+    const targetCard = document.getElementById(`q-box-${firstMissing}`);
+    if (targetCard) {
+      // Plynulý scroll k chybějící otázce
+      targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      // Efekt zatřesení a zvýraznění
+      targetCard.classList.remove('shake-highlight');
+      void targetCard.offsetWidth; // Trigger reflow pro opakovanou animaci
+      targetCard.classList.add('shake-highlight');
     }
+    return;
+  }
+
+  // Vše je vyplněno -> odesíláme!
+  if (msgEl) msgEl.classList.add('hidden');
+
+  const btn = document.getElementById('btnSubmitAnswers');
+  btn.disabled = true;
+  btn.innerText = "Odesílám odpovědi...";
+  btn.classList.add('opacity-75');
+
+  const answersArr = gameState.questions.map((_, i) => myAnswers[i]);
+  const myName = localStorage.getItem('wedding_pname') || 'Host';
+
+  sendWs({
+    type: 'SUBMIT',
+    id: myId,
+    name: myName,
+    answers: answersArr
+  });
+}
 
     function renderUI() {
         const me = gameState.players.find(p => p.id === myId);

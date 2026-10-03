@@ -157,4 +157,17 @@ public class QuizManager {
             return "{}";
         }
     }
+
+    public synchronized void restoreFromBackup(GameState newState, List<Question> newQuestions, List<AnswerOption> newAnswers, List<Player> newPlayers) {
+        this.state = newState;
+        this.questions.clear();
+        this.questions.addAll(newQuestions);
+        this.correctAnswers.clear();
+        this.correctAnswers.addAll(newAnswers);
+        this.players.clear();
+        for (Player p : newPlayers) {
+            this.players.put(p.id(), p);
+        }
+        System.out.println("--> Úspěšně obnovena data ze zálohy! Hráčů: " + players.size());
+    }
 }
