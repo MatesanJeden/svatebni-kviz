@@ -167,16 +167,49 @@
     }
 
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${location.host}/ws`);
+    let ws;
+    function connect() {
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws = new WebSocket(`${proto}//${location.host}/ws`);
+
+        ws.onmessage = (e) => {
+            gameState = JSON.parse(e.data);
+            renderUI(); // v admin.html volejte renderAdminUI()
+        };
+
+        ws.onopen = () => {
+            // Pokud máme uložené jméno/id, po reconnectu se znovu ohlásíme
+            const name = localStorage.getItem('wedding_pname');
+            if (name) sendWs({ type: 'JOIN', id: myId, name });
+        };
+
+        // Když spojení spadne, zkus se za 1 sekundu připojit znovu
+        ws.onclose = () => setTimeout(connect, 1000);
+    }
+
+    // Bezpečné odeslání – pošle jen když je spojení živé
+    function sendWs(data) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(data));
+        }
+    }
+
+    // KLÍČOVÝ ŘÁDEK PRO MOBILY:
+    // Jakmile uživatel odemkne mobil nebo přepne zpět do prohlížeče,
+    // zkontrolujeme, zda socket žije. Pokud ne, okamžitě navážeme nový!
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && (!ws || ws.readyState !== WebSocket.OPEN)) {
+            connect();
+        }
+    });
+
+    // Start
+    connect();
 
     ws.onmessage = (event) => {
         gameState = JSON.parse(event.data);
         renderAdminUI();
     };
-
-    function sendWs(data) {
-        ws.send(JSON.stringify(data));
-    }
 
     function unlockAdmin() {
         const pin = document.getElementById('adminPinInput').value;
@@ -406,13 +439,82 @@
 
         document.getElementById('adminQuestionsList').innerHTML = qHtml;
 
-        // Žebříček
-        let lbHtml = '';
+        // Žebříček s detekcí všech soubojů v TOP 3 v admin panelu
+        const scoreGroups = {};
+        gameState.players.forEach(p => {
+            const sc = p.score || 0;
+            if (!scoreGroups[sc]) scoreGroups[sc] = [];
+            scoreGroups[sc].push(p);
+        });
+
+        const sortedScores = Object.keys(scoreGroups).map(Number).sort((a, b) => b - a);
+
+        const battles = []; // Seznam nutných rozstřelů
+        let currentRank = 1;
+
+        for (const score of sortedScores) {
+            const group = scoreGroups[score];
+            const count = group.length;
+
+            if (currentRank > 3) break;
+
+            if (count > 1) {
+                let battleTitle = '';
+                if (currentRank === 1) {
+                    battleTitle = count === 2 ? 'Souboj o 1. a 2. místo (zlato / stříbro)' : 'Souboj o kompletní stupně vítězů';
+                } else if (currentRank === 2) {
+                    battleTitle = 'Souboj o 2. a 3. místo (stříbro / bronz)';
+                } else if (currentRank === 3) {
+                    battleTitle = 'Souboj o 3. místo (bronz)';
+                }
+
+                battles.push({
+                    title: battleTitle,
+                    rank: currentRank,
+                    score: score,
+                    names: group.map(p => p.name).join(', '),
+                    playerIds: new Set(group.map(p => p.id))
+                });
+            }
+            currentRank += count;
+        }
+
+        let tieBreakAlert = '';
+        if (battles.length > 0) {
+            tieBreakAlert = battles.map(b => `
+                <div class="mb-3 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2.5">
+                    <span class="text-xl shrink-0">⚔️</span>
+                    <div>
+                        <strong class="font-bold text-rose-900 block text-sm">${b.title}</strong>
+                        <p class="mt-0.5">Shoda na ${b.score} bodech. Vyhlaste souboj mezi:</p>
+                        <p class="font-bold text-stone-800 mt-1 bg-white px-2 py-1 rounded border border-rose-200 inline-block">${b.names}</p>
+                    </div>
+                </div>
+            `).join('');
+        } else if (gameState.players.length > 0) {
+            tieBreakAlert = `
+                <div class="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
+                    <span class="text-base">🏆</span>
+                    <div><strong>Všechna 3 pódiová místa jsou jednoznačná!</strong> Není potřeba žádný rozstřel.</div>
+                </div>
+            `;
+        }
+
+        let lbHtml = tieBreakAlert;
         const sorted = [...gameState.players].sort((a,b) => (a.rank || 99) - (b.rank || 99));
         sorted.forEach(p => {
+            const isPodium = p.rank <= 3;
+            const medal = p.rank === 1 ? '🥇' : (p.rank === 2 ? '🥈' : (p.rank === 3 ? '🥉' : ''));
+            const inBattle = battles.some(b => b.playerIds.has(p.id));
+
             lbHtml += `
-          <div class="py-2.5 flex justify-between items-center text-sm">
-            <span class="font-medium">#${p.rank || '-'} ${p.name}</span>
+          <div class="py-2.5 px-2 flex justify-between items-center text-sm rounded-lg ${inBattle ? 'bg-rose-50/70 border border-rose-200' : (isPodium ? 'bg-amber-50/50' : '')}">
+            <span class="flex items-center gap-1.5 font-medium ${isPodium ? 'text-stone-900 font-semibold' : 'text-stone-700'}">
+              <span>#${p.rank || '-'}</span>
+              <span>${p.name}</span>
+              ${medal ? `<span>${medal}</span>` : ''}
+              ${inBattle ? `<span class="text-[10px] font-bold text-rose-600 bg-rose-100 px-1.5 py-0.5 rounded ml-1">SOUBOJ</span>` : ''}
+            </span>
             <span class="font-bold text-xs bg-stone-100 border border-stone-200 px-2.5 py-1 rounded-lg">${p.score || 0} / ${totalQ} b.</span>
           </div>`;
         });
@@ -441,6 +543,38 @@
         });
         document.getElementById('qrModal').classList.remove('hidden');
     }
+
+    // Žebříček v admin panelu
+    const winners = gameState.players.filter(p => p.rank === 1);
+    let tieBreakAlert = '';
+
+    if (winners.length > 1) {
+        const winnerNames = winners.map(w => w.name).join(', ');
+        tieBreakAlert = `
+    <div class="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2">
+      <span class="text-base">⚔️</span>
+      <div>
+        <strong>Remíza na 1. místě!</strong> Vyhlaste rozstřel mezi hráči: <strong>${winnerNames}</strong>
+      </div>
+    </div>
+  `;
+    }
+
+    let lbHtml = tieBreakAlert;
+    const sorted = [...gameState.players].sort((a,b) => (a.rank || 99) - (b.rank || 99));
+    sorted.forEach(p => {
+        const isTop = p.rank === 1;
+        lbHtml += `
+    <div class="py-2.5 flex justify-between items-center text-sm ${isTop ? 'font-semibold text-stone-900 bg-amber-50/50 px-2 rounded-lg' : ''}">
+      <span class="flex items-center gap-1.5">
+        <span>#${p.rank || '-'}</span>
+        <span>${p.name}</span>
+        ${isTop ? '<span class="text-amber-600 text-xs">👑</span>' : ''}
+      </span>
+      <span class="font-bold text-xs bg-stone-100 border border-stone-200 px-2.5 py-1 rounded-lg">${p.score || 0} / ${totalQ} b.</span>
+    </div>`;
+    });
+    document.getElementById('adminLeaderboardList').innerHTML = lbHtml;
 </script>
 </body>
 </html>

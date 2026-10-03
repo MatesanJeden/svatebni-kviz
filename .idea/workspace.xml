@@ -7,7 +7,10 @@
     <list default="true" id="f754c203-1489-4fd0-9d51-66c0bde0d6ca" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/cz/svatba/QuizManager.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/cz/svatba/QuizManager.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/public/admin.html" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/public/admin.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/resources/public/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/public/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/cz/svatba/QuizManager.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/cz/svatba/QuizManager.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/public/admin.html" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/public/admin.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/public/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/public/index.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />

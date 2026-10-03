@@ -42,6 +42,24 @@
 </header>
 
 <main class="flex-1 flex justify-center p-3 sm:p-6">
+
+    <div id="intro" class="absolute top-40 bg-white p-8 rounded-2xl shadow-md w-full max-w-80 z-10">
+        <h2 class="font-serif text-xl">Svatební tipovačka</h2>
+
+        <p class="mt-6">Čekají tě otázky, kde si můžeš tipnout - kdo z koho? Anička, Nat, nebo oba dva?
+            Jak dobře je znáš?</p>
+
+        <p class="mt-6">Vyhodnocení je součástí programu od 18:30. První tři s nejpřesnějšími odpověďmi čeká odměna.</p>
+
+        <p class="mt-6">Prosíme o diskrétnost a neptejte se Aničky ani Nata na žádnou z následujících otázek.</p>
+
+        <p class="mt-6 font-semibold">Tipování zdar!</p>
+
+        <button onclick="hideIntro()" class="mt-20 w-full py-3.5 bg-stone-800 hover:bg-stone-900 text-stone-50 rounded-2xl font-medium text-sm transition shadow-md">OK</button>
+    </div>
+
+    <div id="overlay" class="absolute top-0 bottom-0 left-0 right-0 bg-[#faf8f5] opacity-60"></div>
+
     <div class="w-full max-w-md bg-white border border-stone-200/80 rounded-3xl shadow-xl shadow-stone-200/40 p-5 flex flex-col">
         <div class="text-center pb-4 border-b border-stone-100">
             <span class="text-[10px] uppercase tracking-widest text-stone-400 font-semibold">Svatební kvíz</span>
@@ -145,7 +163,44 @@
     let gameState = { state: 'LOBBY', questions: [], correctAnswers: [], players: [] };
 
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${location.host}/ws`);
+    let ws;
+    function connect() {
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws = new WebSocket(`${proto}//${location.host}/ws`);
+
+        ws.onmessage = (e) => {
+            gameState = JSON.parse(e.data);
+            renderUI(); // v admin.html volejte renderAdminUI()
+        };
+
+        ws.onopen = () => {
+            // Pokud máme uložené jméno/id, po reconnectu se znovu ohlásíme
+            const name = localStorage.getItem('wedding_pname');
+            if (name) sendWs({ type: 'JOIN', id: myId, name });
+        };
+
+        // Když spojení spadne, zkus se za 1 sekundu připojit znovu
+        ws.onclose = () => setTimeout(connect, 1000);
+    }
+
+    // Bezpečné odeslání – pošle jen když je spojení živé
+    function sendWs(data) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(data));
+        }
+    }
+
+    // KLÍČOVÝ ŘÁDEK PRO MOBILY:
+    // Jakmile uživatel odemkne mobil nebo přepne zpět do prohlížeče,
+    // zkontrolujeme, zda socket žije. Pokud ne, okamžitě navážeme nový!
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && (!ws || ws.readyState !== WebSocket.OPEN)) {
+            connect();
+        }
+    });
+
+    // Start
+    connect();
 
     ws.onopen = () => {
         // Pokud už prohlížeč má uložené jméno hráče, automaticky ho znovu připojíme
@@ -177,10 +232,6 @@
 
         renderUI();
     };
-
-    function sendWs(data) {
-        ws.send(JSON.stringify(data));
-    }
 
     function joinGame(inputId) {
         const input = document.getElementById(inputId);
@@ -252,13 +303,127 @@
             }
         }
 
-        // Fáze RESULTS
+        // Fáze RESULTS (Vyhlášení TOP 3 s podporou více soubojů)
         if (gameState.state === 'RESULTS') {
             if (me) {
-                document.getElementById('resRank').innerText = `#${me.rank || '-'} . MÍSTO`;
-                document.getElementById('resScore').innerText = `Získali jste ${me.score || 0} z ${gameState.questions.length} bodů`;
+                // Seskupíme hráče podle skóre
+                const scoreGroups = {};
+                gameState.players.forEach(p => {
+                    const sc = p.score || 0;
+                    if (!scoreGroups[sc]) scoreGroups[sc] = [];
+                    scoreGroups[sc].push(p);
+                });
 
-                let html = '';
+                const sortedScores = Object.keys(scoreGroups).map(Number).sort((a, b) => b - a);
+
+                // Detekce soubojů v TOP 3
+                // battleInfo pro hráče: { rank: number, title: string, forPlaces: string, rivals: string[] }
+                let myBattle = null;
+                let myMedal = null; // Pokud má hráč jistou konkrétní medaili
+
+                let currentRank = 1;
+                for (const score of sortedScores) {
+                    const group = scoreGroups[score];
+                    const count = group.length;
+
+                    if (currentRank > 3) {
+                        // Mimo bednu
+                        break;
+                    }
+
+                    if (count === 1) {
+                        // Jednoznačné místo
+                        if (group[0].id === me.id) {
+                            myMedal = currentRank;
+                        }
+                        currentRank += 1;
+                    } else {
+                        // Shoda v rámci TOP 3!
+                        const isMeInGroup = group.some(p => p.id === me.id);
+                        if (isMeInGroup) {
+                            const rivals = group.filter(p => p.id !== me.id).map(p => p.name);
+                            let battleTitle = '';
+                            let forPlaces = '';
+
+                            if (currentRank === 1) {
+                                if (count === 2) {
+                                    battleTitle = 'SOUBOJ O 1. MÍSTO!';
+                                    forPlaces = 'o 1. a 2. místo (zlato a stříbro)';
+                                } else {
+                                    battleTitle = 'SOUBOJ O 1. MÍSTO!';
+                                    forPlaces = count === 3 ? 'o kompletní stupně vítězů' : 'o postup na stupně vítězů';
+                                }
+                            } else if (currentRank === 2) {
+                                battleTitle = 'SOUBOJ O 2. MÍSTO!';
+                                forPlaces = count === 2 ? 'o 2. a 3. místo (stříbro a bronz)' : 'o zbývající medaile';
+                            } else if (currentRank === 3) {
+                                battleTitle = 'SOUBOJ O 3. MÍSTO!';
+                                forPlaces = 'o poslední pódiové 3. místo (bronz)';
+                            }
+
+                            myBattle = {
+                                title: battleTitle,
+                                forPlaces: forPlaces,
+                                rivals: rivals
+                            };
+                        }
+                        currentRank += count;
+                    }
+                }
+
+                let bannerHtml = '';
+
+                if (myBattle) {
+                    // Hráč je v rozstřelu (ať už o 1., 2. nebo 3. místo)
+                    const rivalsText = myBattle.rivals.join(', ');
+                    const label = myBattle.rivals.length === 1 ? 'tímto hráčem' : 'těmito hráči';
+
+                    bannerHtml = `
+              <div class="text-center p-5 bg-rose-50 rounded-2xl border border-rose-200 shadow-sm animate-fade-in">
+                <div class="text-4xl mb-2">⚔️</div>
+                <span class="text-[10px] uppercase font-bold tracking-widest text-rose-700">Bitva o medaile</span>
+                <h2 class="font-serif text-2xl font-bold text-stone-800 mt-1">${myBattle.title}</h2>
+                <p class="text-xs text-stone-600 mt-2 leading-relaxed">
+                  Máš stejný počet bodů (${me.score} b.) a <strong>${myBattle.forPlaces}</strong> se utkáš v epickém souboji s ${label}:
+                </p>
+                <p class="text-sm font-bold text-rose-800 mt-2 px-3 py-1.5 bg-white/90 rounded-xl inline-block border border-rose-200 shadow-xs">
+                  ${rivalsText}
+                </p>
+                <p class="text-[11px] text-stone-500 mt-2.5 font-medium">Sledujte pokyny moderátora!</p>
+              </div>
+            `;
+                } else if (myMedal) {
+                    // Hráč má svou medaili jistou bez souboje
+                    const medals = {
+                        1: { icon: '🥇', label: '1. MÍSTO', sub: 'Absolutní vítěz kvízu!' },
+                        2: { icon: '🥈', label: '2. MÍSTO', sub: 'Skvělé stříbrné umístění!' },
+                        3: { icon: '🥉', label: '3. MÍSTO', sub: 'Parádní bronzové umístění!' }
+                    };
+                    const m = medals[myMedal];
+
+                    bannerHtml = `
+              <div class="text-center p-5 bg-amber-50/80 rounded-2xl border border-amber-200 shadow-sm animate-fade-in">
+                <div class="text-4xl mb-1">${m.icon}</div>
+                <span class="text-[10px] uppercase font-bold tracking-widest text-amber-800">${m.sub}</span>
+                <h2 class="font-serif text-3xl font-bold text-stone-800 mt-1">${m.label}</h2>
+                <p class="text-sm font-semibold text-stone-700 mt-1">Gratulujeme k pódiovému umístění!</p>
+                <p class="text-xs text-stone-500 mt-0.5">Získali jste ${me.score} z ${gameState.questions.length} bodů.</p>
+              </div>
+            `;
+                } else {
+                    // Hráč je mimo pódium
+                    bannerHtml = `
+              <div class="text-center p-4 bg-stone-50 rounded-2xl border border-stone-200">
+                <div class="text-2xl text-stone-400 mb-1">👏</div>
+                <span class="text-[10px] uppercase font-bold text-stone-400">Vaše umístění</span>
+                <h2 class="font-serif text-3xl font-bold text-stone-800">#${me.rank || '-'} . MÍSTO</h2>
+                <p class="text-xs text-stone-600 font-medium mt-1">Získali jste ${me.score || 0} z ${gameState.questions.length} bodů</p>
+              </div>
+            `;
+                }
+
+                // Rekapitulace otázek
+                let summaryHtml = '';
                 gameState.questions.forEach((q, idx) => {
                     const userAns = me.answers ? me.answers[idx] : null;
                     const correctAns = gameState.correctAnswers[idx];
@@ -266,7 +431,7 @@
                     const userLabel = OPTIONS.find(o => o.code === userAns)?.label || 'Neodpovězeno';
                     const correctLabel = OPTIONS.find(o => o.code === correctAns)?.label || '-';
 
-                    html += `
+                    summaryHtml += `
               <div class="p-3 bg-stone-50 border border-stone-200 rounded-xl text-xs flex justify-between items-center">
                 <div>
                   <p class="font-medium text-stone-800">${q.text}</p>
@@ -277,11 +442,22 @@
                 </span>
               </div>`;
                 });
-                document.getElementById('resSummary').innerHTML = html;
+
+                document.getElementById('pResults').innerHTML = `
+            <div class="space-y-4">
+              ${bannerHtml}
+              <div class="space-y-2 overflow-y-auto max-h-[42dvh] pr-1 ios-smooth-scroll">
+                ${summaryHtml}
+              </div>
+            </div>
+          `;
             } else {
-                document.getElementById('resRank').innerText = "KVÍZ SKONČIL";
-                document.getElementById('resScore').innerText = "Do tohoto kola jste se nestihli zapojit.";
-                document.getElementById('resSummary').innerHTML = "";
+                document.getElementById('pResults').innerHTML = `
+            <div class="text-center py-8">
+              <h2 class="font-serif text-2xl text-stone-800">KVÍZ SKONČIL</h2>
+              <p class="text-xs text-stone-500 mt-1">Do tohoto kola jste se nestihli zapojit.</p>
+            </div>
+          `;
             }
         }
     }
@@ -303,6 +479,14 @@
           </div>`;
         });
         document.getElementById('questionsList').innerHTML = html;
+    }
+
+    function hideIntro() {
+        let intro = document.getElementById("intro");
+        let overlay = document.getElementById("overlay");
+
+        intro.classList.add("hidden");
+        overlay.classList.add("hidden");
     }
 </script>
 </body>

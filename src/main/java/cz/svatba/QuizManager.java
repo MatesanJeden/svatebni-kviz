@@ -129,16 +129,17 @@ public class QuizManager {
             evaluated.add(new Player(p.id(), p.name(), p.submitted(), p.submittedAt(), p.answers(), score, 0));
         }
 
-        evaluated.sort((a, b) -> {
-            if (b.score() != a.score()) return Integer.compare(b.score(), a.score());
-            long timeA = a.submittedAt() == null ? Long.MAX_VALUE : a.submittedAt();
-            long timeB = b.submittedAt() == null ? Long.MAX_VALUE : b.submittedAt();
-            return Long.compare(timeA, timeB);
-        });
+        // Seřazení čistě podle bodů sestupně
+        evaluated.sort((a, b) -> Integer.compare(b.score(), a.score()));
 
-        int rank = 1;
-        for (Player p : evaluated) {
-            players.put(p.id(), new Player(p.id(), p.name(), p.submitted(), p.submittedAt(), p.answers(), p.score(), rank++));
+        // Přiřazení pořadí (stejné body = stejné místo)
+        int currentRank = 1;
+        for (int i = 0; i < evaluated.size(); i++) {
+            if (i > 0 && evaluated.get(i).score() < evaluated.get(i - 1).score()) {
+                currentRank = i + 1;
+            }
+            Player p = evaluated.get(i);
+            players.put(p.id(), new Player(p.id(), p.name(), p.submitted(), p.submittedAt(), p.answers(), p.score(), currentRank));
         }
     }
 
