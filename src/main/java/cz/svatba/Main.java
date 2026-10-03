@@ -60,14 +60,27 @@ public class Main {
                             broadcastState();
                         }
                         case "SUBMIT" -> {
-                            String id = node.path("id").asText();
-                            List<AnswerOption> answers = new ArrayList<>();
-                            for (JsonNode ans : node.path("answers")) {
-                                answers.add(AnswerOption.valueOf(ans.asText()));
-                            }
-                            quizManager.submitAnswers(id, answers);
-                            broadcastState();
-                        }
+    String id = node.path("id").asText();
+    String name = node.path("name").asText(null);
+    if (name != null && !name.isBlank()) {
+        quizManager.registerPlayer(id, name);
+    }
+
+    List<AnswerOption> answers = new ArrayList<>();
+    for (JsonNode ans : node.path("answers")) {
+        if (ans == null || ans.isNull() || ans.asText().isBlank() || "null".equalsIgnoreCase(ans.asText())) {
+            answers.add(null);
+        } else {
+            try {
+                answers.add(AnswerOption.valueOf(ans.asText().trim()));
+            } catch (IllegalArgumentException ex) {
+                answers.add(null);
+            }
+        }
+    }
+    quizManager.submitAnswers(id, answers);
+    broadcastState();
+}
                         case "ADMIN_SET_ANSWER" -> {
                             if (verifyPin(node)) {
                                 int qIdx = node.path("qIdx").asInt();

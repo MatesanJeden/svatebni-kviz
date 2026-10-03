@@ -255,53 +255,56 @@
     }
 
     function submitAnswers() {
-        const total = gameState.questions ? gameState.questions.length : 0;
-        const missingIndices = [];
+    const total = gameState.questions ? gameState.questions.length : 0;
+    const missingIndices = [];
 
-        for (let i = 0; i < total; i++) {
-            if (!myAnswers[i]) missingIndices.push(i);
-        }
-
-        const msgEl = document.getElementById('submitValidationMsg');
-
-        if (missingIndices.length > 0) {
-            const firstMissing = missingIndices[0];
-            const missingNumbers = missingIndices.map(i => i + 1).join(', ');
-
-            if (msgEl) {
-                msgEl.innerText = missingIndices.length === 1 
-                    ? `Zbývá zodpovědět otázku č. ${missingNumbers}` 
-                    : `Zbývá vyplnit otázky: ${missingNumbers}`;
-                msgEl.classList.remove('hidden');
-            }
-
-            const targetCard = document.getElementById(`q-box-${firstMissing}`);
-            if (targetCard) {
-                targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                targetCard.classList.remove('shake-highlight');
-                void targetCard.offsetWidth;
-                targetCard.classList.add('shake-highlight');
-            }
-            return;
-        }
-
-        if (msgEl) msgEl.classList.add('hidden');
-
-        const btn = document.getElementById('btnSubmitAnswers');
-        btn.disabled = true;
-        btn.innerText = "Odesílám odpovědi...";
-        btn.classList.add('opacity-75');
-
-        const answersArr = gameState.questions.map((_, i) => myAnswers[i]);
-        const myName = localStorage.getItem('wedding_pname') || 'Host';
-
-        sendWs({
-            type: 'SUBMIT',
-            id: myId,
-            name: myName,
-            answers: answersArr
-        });
+    for (let i = 0; i < total; i++) {
+        if (!myAnswers[i]) missingIndices.push(i);
     }
+
+    const msgEl = document.getElementById('submitValidationMsg');
+
+    if (missingIndices.length > 0) {
+        const firstMissing = missingIndices[0];
+        const missingNumbers = missingIndices.map(i => i + 1).join(', ');
+
+        if (msgEl) {
+            msgEl.innerText = missingIndices.length === 1 
+                ? `Zbývá zodpovědět otázku č. ${missingNumbers}` 
+                : `Zbývá vyplnit otázky: ${missingNumbers}`;
+            msgEl.classList.remove('hidden');
+        }
+
+        const targetCard = document.getElementById(`q-box-${firstMissing}`);
+        if (targetCard) {
+            targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            targetCard.classList.remove('shake-highlight');
+            void targetCard.offsetWidth;
+            targetCard.classList.add('shake-highlight');
+        }
+        return;
+    }
+
+    if (msgEl) msgEl.classList.add('hidden');
+
+    const btn = document.getElementById('btnSubmitAnswers');
+    btn.disabled = true;
+    btn.innerText = "Odesílám odpovědi...";
+    btn.classList.add('opacity-75');
+
+    const answersArr = [];
+    for (let i = 0; i < total; i++) {
+        answersArr.push(myAnswers[i] || 'NAT');
+    }
+    const myName = localStorage.getItem('wedding_pname') || 'Host';
+
+    sendWs({
+        type: 'SUBMIT',
+        id: myId,
+        name: myName,
+        answers: answersArr
+    });
+}
 
     function renderUI() {
         const me = gameState.players.find(p => p.id === myId);

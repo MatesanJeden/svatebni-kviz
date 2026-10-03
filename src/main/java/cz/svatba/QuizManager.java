@@ -47,10 +47,11 @@ public class QuizManager {
     }
 
     public synchronized void submitAnswers(String id, List<AnswerOption> answers) {
+        if (id == null || id.isBlank()) return;
         Player p = players.get(id);
-        if (p != null) {
-            players.put(id, new Player(p.id(), p.name(), true, System.currentTimeMillis(), answers, 0, 0));
-        }
+        String name = (p != null && p.name() != null && !p.name().isBlank()) ? p.name() : "Host";
+
+        players.put(id, new Player(id, name, true, System.currentTimeMillis(), answers != null ? answers : List.of(), 0, 0));
     }
 
     public synchronized void setCorrectAnswer(int questionIndex, AnswerOption option) {
