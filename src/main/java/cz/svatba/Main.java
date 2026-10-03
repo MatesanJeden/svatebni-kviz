@@ -1,5 +1,8 @@
 package cz.svatba;
 
+import cz.svatba.GameState.Player;
+import cz.svatba.GameState.Question;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import cz.svatba.GameState.AnswerOption;
