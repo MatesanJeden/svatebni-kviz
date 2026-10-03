@@ -18,27 +18,25 @@
             font-family: 'Playfair Display', serif;
         }
 
-        /* Plynulý momentum scroll pro iOS Safari */
         .ios-smooth-scroll {
             -webkit-overflow-scrolling: touch;
             overscroll-behavior-y: contain;
             touch-action: pan-y;
         }
 
-        /* Všechny inputy na iOS musí mít minimálně 16px, aby Safari nezazoomovalo */
         input[type="text"] {
             font-size: 16px !important;
         }
 
         @keyframes shake {
-        0%, 100% { transform: translateX(0); }
-        20%, 60% { transform: translateX(-6px); }
-        40%, 80% { transform: translateX(6px); }
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
         }
         .shake-highlight {
-        animation: shake 0.4s ease-in-out;
-        border-color: #f43f5e !important; /* Rose-500 */
-        box-shadow: 0 0 0 2px rgba(244, 63, 94, 0.25) !important;
+            animation: shake 0.4s ease-in-out;
+            border-color: #f43f5e !important;
+            box-shadow: 0 0 0 2px rgba(244, 63, 94, 0.25) !important;
         }
     </style>
 </head>
@@ -99,12 +97,12 @@
 
         <!-- Fáze: QUESTIONNAIRE -->
         <div id="pQuestions" class="hidden py-3 flex-1 flex flex-col">
-            <!-- Pozdní přihlášení (pokud přišel až v průběhu) -->
+            <!-- Pozdní přihlášení -->
             <div id="qLateJoinForm" class="hidden py-6 space-y-4">
                 <div class="text-center space-y-1">
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Kvíz právě probíhá
-            </span>
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Kvíz právě probíhá
+                    </span>
                     <h2 class="font-serif text-xl pt-2">Zapojte se do hry!</h2>
                     <p class="text-xs text-stone-500">Napište své jméno a můžete rovnou začít tipovat:</p>
                 </div>
@@ -119,17 +117,16 @@
                     <span id="qAnswerCount" class="font-medium text-amber-800">0 zodpovězeno</span>
                 </div>
                 <div id="questionsList" class="space-y-4 overflow-y-auto max-h-[58dvh] pr-1 ios-smooth-scroll flex-1"></div>
-<button 
-  id="btnSubmitAnswers" 
-  type="button" 
-  onclick="submitAnswers()" 
-  class="mt-4 w-full py-3.5 rounded-2xl font-semibold text-sm bg-stone-800 hover:bg-stone-900 text-stone-50 transition shadow-md shrink-0 active:scale-[0.99] touch-manipulation cursor-pointer"
->
-  Odevzdat odpovědi
-</button>
-
-<!-- Nenápadná chybová hláška přímo pod tlačítkem -->
-<div id="submitValidationMsg" class="hidden text-center text-xs font-semibold text-rose-600 mt-2.5 transition"></div>            </div>
+                <button 
+                    id="btnSubmitAnswers" 
+                    type="button" 
+                    onclick="submitAnswers()" 
+                    class="mt-4 w-full py-3.5 rounded-2xl font-semibold text-sm bg-stone-800 hover:bg-stone-900 text-stone-50 transition shadow-md shrink-0 active:scale-[0.99] touch-manipulation cursor-pointer"
+                >
+                    Odevzdat odpovědi
+                </button>
+                <div id="submitValidationMsg" class="hidden text-center text-xs font-semibold text-rose-600 mt-2.5 transition"></div>
+            </div>
 
             <div id="qSubmittedMsg" class="hidden text-center py-10 space-y-3">
                 <div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl border border-emerald-100">✓</div>
@@ -146,15 +143,7 @@
         </div>
 
         <!-- Fáze: RESULTS -->
-        <div id="pResults" class="hidden py-2 space-y-4">
-            <div class="text-center p-4 bg-amber-50/70 rounded-2xl border border-stone-200">
-                <div class="text-2xl text-amber-600 mb-1">🏆</div>
-                <span class="text-[10px] uppercase font-bold text-stone-400">Vaše umístění</span>
-                <h2 id="resRank" class="font-serif text-3xl font-bold text-stone-800"># - . MÍSTO</h2>
-                <p id="resScore" class="text-xs text-stone-600 font-medium mt-1"></p>
-            </div>
-            <div id="resSummary" class="space-y-2 overflow-y-auto max-h-[45dvh] pr-1 ios-smooth-scroll"></div>
-        </div>
+        <div id="pResults" class="hidden py-2 space-y-4"></div>
     </div>
 </main>
 
@@ -165,13 +154,8 @@
         { code: 'OBA', label: 'Oba' }
     ];
 
-    // Blokace pinch-to-zoom v iOS Safari
-    document.addEventListener('gesturestart', function (e) {
-        e.preventDefault();
-    });
-    document.addEventListener('dblclick', function (e) {
-        e.preventDefault();
-    });
+    document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+    document.addEventListener('dblclick', function (e) { e.preventDefault(); });
 
     let myId = localStorage.getItem('wedding_pid');
     if (!myId) {
@@ -181,44 +165,53 @@
 
     let myAnswers = {};
     let gameState = { state: 'LOBBY', questions: [], correctAnswers: [], players: [] };
+    let ws = null;
 
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${location.host}/ws`);
+    function connect() {
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws = new WebSocket(`${protocol}//${location.host}/ws`);
 
-    ws.onopen = () => {
-        // Pokud už prohlížeč má uložené jméno hráče, automaticky ho znovu připojíme
-        const savedName = localStorage.getItem('wedding_pname');
-        if (savedName) {
-            sendWs({ type: 'JOIN', id: myId, name: savedName });
-        }
-    };
-
-    ws.onmessage = (event) => {
-        gameState = JSON.parse(event.data);
-
-        const me = gameState.players.find(p => p.id === myId);
-
-        // Pokud moderátor hru resetoval do LOBBY a hráč už v seznamu není
-        if (gameState.state === 'LOBBY' && !me) {
-            myAnswers = {};
-            localStorage.removeItem('wedding_pname');
-            const input = document.getElementById('playerNameInput');
-            if (input) input.value = '';
-            const lateInput = document.getElementById('latePlayerNameInput');
-            if (lateInput) lateInput.value = '';
-            const btn = document.getElementById('btnSubmitAnswers');
-            if (btn) {
-                btn.disabled = true;
-                btn.className = "mt-4 w-full py-3.5 rounded-2xl font-medium text-sm bg-stone-200 text-stone-400 cursor-not-allowed transition shadow-md";
+        ws.onopen = () => {
+            const savedName = localStorage.getItem('wedding_pname');
+            if (savedName) {
+                sendWs({ type: 'JOIN', id: myId, name: savedName });
             }
-        }
+        };
 
-        renderUI();
-    };
+        ws.onmessage = (event) => {
+            gameState = JSON.parse(event.data);
+            const me = gameState.players.find(p => p.id === myId);
+
+            if (gameState.state === 'LOBBY' && !me) {
+                myAnswers = {};
+                localStorage.removeItem('wedding_pname');
+                const input = document.getElementById('playerNameInput');
+                if (input) input.value = '';
+                const lateInput = document.getElementById('latePlayerNameInput');
+                if (lateInput) lateInput.value = '';
+            }
+
+            renderUI();
+        };
+
+        ws.onclose = () => {
+            setTimeout(connect, 1000);
+        };
+    }
 
     function sendWs(data) {
-        ws.send(JSON.stringify(data));
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(data));
+        }
     }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && (!ws || ws.readyState !== WebSocket.OPEN)) {
+            connect();
+        }
+    });
+
+    connect();
 
     function joinGame(inputId) {
         const input = document.getElementById(inputId);
@@ -231,99 +224,84 @@
         sendWs({ type: 'JOIN', id: myId, name: name });
     }
 
-    // Při označení odpovědi jen vizuálně přebarvíme a smažeme případné červené zvýraznění
-function selectOption(qIdx, optCode) {
-  myAnswers[qIdx] = optCode;
+    function selectOption(qIdx, optCode) {
+        myAnswers[qIdx] = optCode;
 
-  const qContainer = document.getElementById(`q-box-${qIdx}`);
-  if (qContainer) {
-    // Odstraníme chybové zvýraznění, pokud existovalo
-    qContainer.classList.remove('shake-highlight');
+        // Vizuální update tlačítek
+        const qContainer = document.getElementById(`q-box-${qIdx}`);
+        if (qContainer) {
+            qContainer.classList.remove('shake-highlight');
+            const buttons = qContainer.querySelectorAll('button[data-opt]');
+            buttons.forEach(btn => {
+                const code = btn.getAttribute('data-opt');
+                const label = OPTIONS.find(o => o.code === code)?.label || code;
+                if (code === optCode) {
+                    btn.className = "py-2.5 px-1 rounded-xl text-xs font-semibold border text-center transition flex items-center justify-center gap-1 bg-stone-800 text-stone-50 border-stone-800 shadow-sm";
+                    btn.innerHTML = `${label} <span class="text-amber-300 text-[10px]">✓</span>`;
+                } else {
+                    btn.className = "py-2.5 px-1 rounded-xl text-xs font-semibold border text-center transition flex items-center justify-center gap-1 bg-white hover:bg-stone-50 border-stone-200 text-stone-700";
+                    btn.innerHTML = label;
+                }
+            });
+        }
 
-    const buttons = qContainer.querySelectorAll('button[data-opt]');
-    buttons.forEach(btn => {
-      const code = btn.getAttribute('data-opt');
-      if (code === optCode) {
-        btn.className = "py-2.5 px-1 rounded-xl text-xs font-semibold border text-center transition flex items-center justify-center gap-1 bg-stone-800 text-stone-50 border-stone-800 shadow-sm";
-      } else {
-        btn.className = "py-2.5 px-1 rounded-xl text-xs font-semibold border text-center transition flex items-center justify-center gap-1 bg-white hover:bg-stone-50 border-stone-200 text-stone-700";
-      }
-    });
-  }
+        const total = gameState.questions ? gameState.questions.length : 0;
+        const answered = Object.keys(myAnswers).length;
+        const countEl = document.getElementById('qAnswerCount');
+        if (countEl) countEl.innerText = `${answered} / ${total} zodpovězeno`;
 
-  // Aktualizace počítadla
-  const total = gameState.questions ? gameState.questions.length : 0;
-  const answered = Object.keys(myAnswers).length;
-  const countEl = document.getElementById('qAnswerCount');
-  if (countEl) {
-    countEl.innerText = `${answered} / ${total} zodpovězeno`;
-  }
-
-  // Pokud svítila chybová hláška a hráč právě odpověděl, zkontrolujeme ji
-  const msgEl = document.getElementById('submitValidationMsg');
-  if (msgEl && answered === total) {
-    msgEl.classList.add('hidden');
-  }
-}
-
-// Odeslání s validací, scrollem a upozorněním
-function submitAnswers() {
-  const total = gameState.questions ? gameState.questions.length : 0;
-  const missingIndices = [];
-
-  for (let i = 0; i < total; i++) {
-    if (!myAnswers[i]) {
-      missingIndices.push(i);
-    }
-  }
-
-  const msgEl = document.getElementById('submitValidationMsg');
-
-  // Pokud chybí odpovědi:
-  if (missingIndices.length > 0) {
-    const firstMissing = missingIndices[0];
-    const missingNumbers = missingIndices.map(i => i + 1).join(', ');
-
-    // 1. Zobrazíme textové upozornění
-    if (msgEl) {
-      msgEl.innerText = missingIndices.length === 1 
-        ? `Zbývá zodpovědět otázku č. ${missingNumbers}` 
-        : `Zbývá vyplnit otázky: ${missingNumbers}`;
-      msgEl.classList.remove('hidden');
+        const msgEl = document.getElementById('submitValidationMsg');
+        if (msgEl && answered === total) msgEl.classList.add('hidden');
     }
 
-    // 2. Najdeme první chybějící otázku
-    const targetCard = document.getElementById(`q-box-${firstMissing}`);
-    if (targetCard) {
-      // Plynulý scroll k chybějící otázce
-      targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    function submitAnswers() {
+        const total = gameState.questions ? gameState.questions.length : 0;
+        const missingIndices = [];
 
-      // Efekt zatřesení a zvýraznění
-      targetCard.classList.remove('shake-highlight');
-      void targetCard.offsetWidth; // Trigger reflow pro opakovanou animaci
-      targetCard.classList.add('shake-highlight');
+        for (let i = 0; i < total; i++) {
+            if (!myAnswers[i]) missingIndices.push(i);
+        }
+
+        const msgEl = document.getElementById('submitValidationMsg');
+
+        if (missingIndices.length > 0) {
+            const firstMissing = missingIndices[0];
+            const missingNumbers = missingIndices.map(i => i + 1).join(', ');
+
+            if (msgEl) {
+                msgEl.innerText = missingIndices.length === 1 
+                    ? `Zbývá zodpovědět otázku č. ${missingNumbers}` 
+                    : `Zbývá vyplnit otázky: ${missingNumbers}`;
+                msgEl.classList.remove('hidden');
+            }
+
+            const targetCard = document.getElementById(`q-box-${firstMissing}`);
+            if (targetCard) {
+                targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                targetCard.classList.remove('shake-highlight');
+                void targetCard.offsetWidth;
+                targetCard.classList.add('shake-highlight');
+            }
+            return;
+        }
+
+        if (msgEl) msgEl.classList.add('hidden');
+
+        const btn = document.getElementById('btnSubmitAnswers');
+        btn.disabled = true;
+        btn.innerText = "Odesílám odpovědi...";
+        btn.classList.add('opacity-75');
+
+        const answersArr = gameState.questions.map((_, i) => myAnswers[i]);
+        const myName = localStorage.getItem('wedding_pname') || 'Host';
+
+        sendWs({
+            type: 'SUBMIT',
+            id: myId,
+            name: myName,
+            answers: answersArr
+        });
     }
-    return;
-  }
-
-  // Vše je vyplněno -> odesíláme!
-  if (msgEl) msgEl.classList.add('hidden');
-
-  const btn = document.getElementById('btnSubmitAnswers');
-  btn.disabled = true;
-  btn.innerText = "Odesílám odpovědi...";
-  btn.classList.add('opacity-75');
-
-  const answersArr = gameState.questions.map((_, i) => myAnswers[i]);
-  const myName = localStorage.getItem('wedding_pname') || 'Host';
-
-  sendWs({
-    type: 'SUBMIT',
-    id: myId,
-    name: myName,
-    answers: answersArr
-  });
-}
 
     function renderUI() {
         const me = gameState.players.find(p => p.id === myId);
@@ -333,7 +311,6 @@ function submitAnswers() {
         document.getElementById('pEvaluation').classList.toggle('hidden', gameState.state !== 'EVALUATION');
         document.getElementById('pResults').classList.toggle('hidden', gameState.state !== 'RESULTS');
 
-        // Fáze LOBBY
         if (gameState.state === 'LOBBY') {
             if (me) {
                 document.getElementById('pLobbyForm').classList.add('hidden');
@@ -345,32 +322,28 @@ function submitAnswers() {
             }
         }
 
-        // Fáze QUESTIONNAIRE
         if (gameState.state === 'QUESTIONNAIRE') {
             if (!me) {
-                // Uživatel přišel až po spuštění a ještě nezadal jméno
                 document.getElementById('qLateJoinForm').classList.remove('hidden');
                 document.getElementById('qFormContainer').classList.add('hidden');
                 document.getElementById('qSubmittedMsg').classList.add('hidden');
             } else if (me.submitted) {
-                // Uživatel už odevzdal
                 document.getElementById('qLateJoinForm').classList.add('hidden');
                 document.getElementById('qFormContainer').classList.add('hidden');
                 document.getElementById('qSubmittedMsg').classList.remove('hidden');
             } else {
-                // Uživatel je přihlášen a vyplňuje otázky
                 document.getElementById('qLateJoinForm').classList.add('hidden');
                 document.getElementById('qFormContainer').classList.remove('hidden');
                 document.getElementById('qSubmittedMsg').classList.add('hidden');
                 document.getElementById('qPlayerName').innerText = me.name;
+                
+                // Vykreslí seznam otázek pouze pokud ještě není vygenerován
                 renderQuestionsList();
             }
         }
 
-        // Fáze RESULTS (Vyhlášení TOP 3 s podporou více soubojů)
         if (gameState.state === 'RESULTS') {
             if (me) {
-                // Seskupíme hráče podle skóre
                 const scoreGroups = {};
                 gameState.players.forEach(p => {
                     const sc = p.score || 0;
@@ -380,29 +353,20 @@ function submitAnswers() {
 
                 const sortedScores = Object.keys(scoreGroups).map(Number).sort((a, b) => b - a);
 
-                // Detekce soubojů v TOP 3
-                // battleInfo pro hráče: { rank: number, title: string, forPlaces: string, rivals: string[] }
                 let myBattle = null;
-                let myMedal = null; // Pokud má hráč jistou konkrétní medaili
-
+                let myMedal = null;
                 let currentRank = 1;
+
                 for (const score of sortedScores) {
                     const group = scoreGroups[score];
                     const count = group.length;
 
-                    if (currentRank > 3) {
-                        // Mimo bednu
-                        break;
-                    }
+                    if (currentRank > 3) break;
 
                     if (count === 1) {
-                        // Jednoznačné místo
-                        if (group[0].id === me.id) {
-                            myMedal = currentRank;
-                        }
+                        if (group[0].id === me.id) myMedal = currentRank;
                         currentRank += 1;
                     } else {
-                        // Shoda v rámci TOP 3!
                         const isMeInGroup = group.some(p => p.id === me.id);
                         if (isMeInGroup) {
                             const rivals = group.filter(p => p.id !== me.id).map(p => p.name);
@@ -410,13 +374,8 @@ function submitAnswers() {
                             let forPlaces = '';
 
                             if (currentRank === 1) {
-                                if (count === 2) {
-                                    battleTitle = 'SOUBOJ O 1. MÍSTO!';
-                                    forPlaces = 'o 1. a 2. místo (zlato a stříbro)';
-                                } else {
-                                    battleTitle = 'SOUBOJ O 1. MÍSTO!';
-                                    forPlaces = count === 3 ? 'o kompletní stupně vítězů' : 'o postup na stupně vítězů';
-                                }
+                                battleTitle = 'SOUBOJ O 1. MÍSTO!';
+                                forPlaces = count === 2 ? 'o 1. a 2. místo (zlato a stříbro)' : (count === 3 ? 'o kompletní stupně vítězů' : 'o postup na stupně vítězů');
                             } else if (currentRank === 2) {
                                 battleTitle = 'SOUBOJ O 2. MÍSTO!';
                                 forPlaces = count === 2 ? 'o 2. a 3. místo (stříbro a bronz)' : 'o zbývající medaile';
@@ -425,11 +384,7 @@ function submitAnswers() {
                                 forPlaces = 'o poslední pódiové 3. místo (bronz)';
                             }
 
-                            myBattle = {
-                                title: battleTitle,
-                                forPlaces: forPlaces,
-                                rivals: rivals
-                            };
+                            myBattle = { title: battleTitle, forPlaces: forPlaces, rivals: rivals };
                         }
                         currentRank += count;
                     }
@@ -438,26 +393,23 @@ function submitAnswers() {
                 let bannerHtml = '';
 
                 if (myBattle) {
-                    // Hráč je v rozstřelu (ať už o 1., 2. nebo 3. místo)
                     const rivalsText = myBattle.rivals.join(', ');
                     const label = myBattle.rivals.length === 1 ? 'tímto hráčem' : 'těmito hráči';
 
                     bannerHtml = `
-              <div class="text-center p-5 bg-rose-50 rounded-2xl border border-rose-200 shadow-sm animate-fade-in">
-                <div class="text-4xl mb-2">⚔️</div>
-                <span class="text-[10px] uppercase font-bold tracking-widest text-rose-700">Bitva o medaile</span>
-                <h2 class="font-serif text-2xl font-bold text-stone-800 mt-1">${myBattle.title}</h2>
-                <p class="text-xs text-stone-600 mt-2 leading-relaxed">
-                  Máš stejný počet bodů (${me.score} b.) a <strong>${myBattle.forPlaces}</strong> se utkáš v epickém souboji s ${label}:
-                </p>
-                <p class="text-sm font-bold text-rose-800 mt-2 px-3 py-1.5 bg-white/90 rounded-xl inline-block border border-rose-200 shadow-xs">
-                  ${rivalsText}
-                </p>
-                <p class="text-[11px] text-stone-500 mt-2.5 font-medium">Sledujte pokyny moderátora!</p>
-              </div>
-            `;
+                        <div class="text-center p-5 bg-rose-50 rounded-2xl border border-rose-200 shadow-sm animate-fade-in">
+                            <div class="text-4xl mb-2">⚔️</div>
+                            <span class="text-[10px] uppercase font-bold tracking-widest text-rose-700">Bitva o medaile</span>
+                            <h2 class="font-serif text-2xl font-bold text-stone-800 mt-1">${myBattle.title}</h2>
+                            <p class="text-xs text-stone-600 mt-2 leading-relaxed">
+                                Máš stejný počet bodů (${me.score} b.) a <strong>${myBattle.forPlaces}</strong> se utkáš v epickém souboji s ${label}:
+                            </p>
+                            <p class="text-sm font-bold text-rose-800 mt-2 px-3 py-1.5 bg-white/90 rounded-xl inline-block border border-rose-200 shadow-xs">
+                                ${rivalsText}
+                            </p>
+                            <p class="text-[11px] text-stone-500 mt-2.5 font-medium">Sledujte pokyny moderátora!</p>
+                        </div>`;
                 } else if (myMedal) {
-                    // Hráč má svou medaili jistou bez souboje
                     const medals = {
                         1: { icon: '🥇', label: '1. MÍSTO', sub: 'Absolutní vítěz kvízu!' },
                         2: { icon: '🥈', label: '2. MÍSTO', sub: 'Skvělé stříbrné umístění!' },
@@ -466,27 +418,23 @@ function submitAnswers() {
                     const m = medals[myMedal];
 
                     bannerHtml = `
-              <div class="text-center p-5 bg-amber-50/80 rounded-2xl border border-amber-200 shadow-sm animate-fade-in">
-                <div class="text-4xl mb-1">${m.icon}</div>
-                <span class="text-[10px] uppercase font-bold tracking-widest text-amber-800">${m.sub}</span>
-                <h2 class="font-serif text-3xl font-bold text-stone-800 mt-1">${m.label}</h2>
-                <p class="text-sm font-semibold text-stone-700 mt-1">Gratulujeme k pódiovému umístění!</p>
-                <p class="text-xs text-stone-500 mt-0.5">Získali jste ${me.score} z ${gameState.questions.length} bodů.</p>
-              </div>
-            `;
+                        <div class="text-center p-5 bg-amber-50/80 rounded-2xl border border-amber-200 shadow-sm animate-fade-in">
+                            <div class="text-4xl mb-1">${m.icon}</div>
+                            <span class="text-[10px] uppercase font-bold tracking-widest text-amber-800">${m.sub}</span>
+                            <h2 class="font-serif text-3xl font-bold text-stone-800 mt-1">${m.label}</h2>
+                            <p class="text-sm font-semibold text-stone-700 mt-1">Gratulujeme k pódiovému umístění!</p>
+                            <p class="text-xs text-stone-500 mt-0.5">Získali jste ${me.score} z ${gameState.questions.length} bodů.</p>
+                        </div>`;
                 } else {
-                    // Hráč je mimo pódium
                     bannerHtml = `
-              <div class="text-center p-4 bg-stone-50 rounded-2xl border border-stone-200">
-                <div class="text-2xl text-stone-400 mb-1">👏</div>
-                <span class="text-[10px] uppercase font-bold text-stone-400">Vaše umístění</span>
-                <h2 class="font-serif text-3xl font-bold text-stone-800">#${me.rank || '-'} . MÍSTO</h2>
-                <p class="text-xs text-stone-600 font-medium mt-1">Získali jste ${me.score || 0} z ${gameState.questions.length} bodů</p>
-              </div>
-            `;
+                        <div class="text-center p-4 bg-stone-50 rounded-2xl border border-stone-200">
+                            <div class="text-2xl text-stone-400 mb-1">👏</div>
+                            <span class="text-[10px] uppercase font-bold text-stone-400">Vaše umístění</span>
+                            <h2 class="font-serif text-3xl font-bold text-stone-800">#${me.rank || '-'} . MÍSTO</h2>
+                            <p class="text-xs text-stone-600 font-medium mt-1">Získali jste ${me.score || 0} z ${gameState.questions.length} bodů</p>
+                        </div>`;
                 }
 
-                // Rekapitulace otázek
                 let summaryHtml = '';
                 gameState.questions.forEach((q, idx) => {
                     const userAns = me.answers ? me.answers[idx] : null;
@@ -496,61 +444,68 @@ function submitAnswers() {
                     const correctLabel = OPTIONS.find(o => o.code === correctAns)?.label || '-';
 
                     summaryHtml += `
-              <div class="p-3 bg-stone-50 border border-stone-200 rounded-xl text-xs flex justify-between items-center">
-                <div>
-                  <p class="font-medium text-stone-800">${q.text}</p>
-                  <p class="text-[11px] text-stone-500">Váš tip: <strong>${userLabel}</strong> | Správně: <span class="font-bold text-stone-700">${correctLabel}</span></p>
-                </div>
-                <span class="${isRight ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-rose-700 bg-rose-50 border-rose-200'} border px-2 py-0.5 rounded-full font-semibold text-[11px]">
-                  ${isRight ? 'OK' : 'Chyba'}
-                </span>
-              </div>`;
+                        <div class="p-3 bg-stone-50 border border-stone-200 rounded-xl text-xs flex justify-between items-center">
+                            <div>
+                                <p class="font-medium text-stone-800">${q.text}</p>
+                                <p class="text-[11px] text-stone-500">Váš tip: <strong>${userLabel}</strong> | Správně: <span class="font-bold text-stone-700">${correctLabel}</span></p>
+                            </div>
+                            <span class="${isRight ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-rose-700 bg-rose-50 border-rose-200'} border px-2 py-0.5 rounded-full font-semibold text-[11px]">
+                                ${isRight ? 'OK' : 'Chyba'}
+                            </span>
+                        </div>`;
                 });
 
                 document.getElementById('pResults').innerHTML = `
-            <div class="space-y-4">
-              ${bannerHtml}
-              <div class="space-y-2 overflow-y-auto max-h-[42dvh] pr-1 ios-smooth-scroll">
-                ${summaryHtml}
-              </div>
-            </div>
-          `;
+                    <div class="space-y-4">
+                        ${bannerHtml}
+                        <div class="space-y-2 overflow-y-auto max-h-[42dvh] pr-1 ios-smooth-scroll">
+                            ${summaryHtml}
+                        </div>
+                    </div>`;
             } else {
                 document.getElementById('pResults').innerHTML = `
-            <div class="text-center py-8">
-              <h2 class="font-serif text-2xl text-stone-800">KVÍZ SKONČIL</h2>
-              <p class="text-xs text-stone-500 mt-1">Do tohoto kola jste se nestihli zapojit.</p>
-            </div>
-          `;
+                    <div class="text-center py-8">
+                        <h2 class="font-serif text-2xl text-stone-800">KVÍZ SKONČIL</h2>
+                        <p class="text-xs text-stone-500 mt-1">Do tohoto kola jste se nestihli zapojit.</p>
+                    </div>`;
             }
         }
     }
 
     function renderQuestionsList() {
+        const listEl = document.getElementById('questionsList');
+        if (!listEl || !gameState.questions || gameState.questions.length === 0) return;
+
+        // Vykreslíme pouze pokud seznam ještě neexistuje, abychom nepřemazávali aktivní kliknutí
+        if (listEl.children.length === gameState.questions.length) return;
+
         let html = '';
         gameState.questions.forEach((q, qIndex) => {
+            const currentAns = myAnswers[qIndex];
             html += `
-          <div class="p-3.5 rounded-2xl bg-[#fdfcfa] border border-stone-200 space-y-2.5 shadow-sm">
-            <span class="text-[10px] font-bold text-amber-800 uppercase tracking-wider">Otázka ${qIndex + 1}</span>
-            <p class="text-sm font-semibold text-stone-800 leading-snug">${q.text}</p>
-            <div class="grid grid-cols-3 gap-1.5 pt-1">
-              ${OPTIONS.map(opt => `
-                <button type="button" onclick="selectOption(${qIndex}, '${opt.code}')" class="py-2.5 px-1 rounded-xl text-xs font-semibold border text-center transition flex items-center justify-center gap-1 ${myAnswers[qIndex] === opt.code ? 'bg-stone-800 text-stone-50 border-stone-800 shadow-sm' : 'bg-white hover:bg-stone-50 border-stone-200 text-stone-700'}">
-                  ${opt.label}${myAnswers[qIndex] === opt.code ? '<span class="text-amber-300 text-[10px]">✓</span>' : ''}
-                </button>
-              `).join('')}
-            </div>
-          </div>`;
+                <div id="q-box-${qIndex}" class="p-3.5 rounded-2xl bg-[#fdfcfa] border border-stone-200 space-y-2.5 shadow-sm">
+                    <span class="text-[10px] font-bold text-amber-800 uppercase tracking-wider">Otázka ${qIndex + 1}</span>
+                    <p class="text-sm font-semibold text-stone-800 leading-snug">${q.text}</p>
+                    <div class="grid grid-cols-3 gap-1.5 pt-1">
+                        ${OPTIONS.map(opt => `
+                            <button 
+                                type="button" 
+                                data-opt="${opt.code}"
+                                onclick="selectOption(${qIndex}, '${opt.code}')" 
+                                class="py-2.5 px-1 rounded-xl text-xs font-semibold border text-center transition flex items-center justify-center gap-1 ${currentAns === opt.code ? 'bg-stone-800 text-stone-50 border-stone-800 shadow-sm' : 'bg-white hover:bg-stone-50 border-stone-200 text-stone-700'}"
+                            >
+                                ${opt.label}${currentAns === opt.code ? '<span class="text-amber-300 text-[10px]">✓</span>' : ''}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>`;
         });
-        document.getElementById('questionsList').innerHTML = html;
+        listEl.innerHTML = html;
     }
 
     function hideIntro() {
-        let intro = document.getElementById("intro");
-        let overlay = document.getElementById("overlay");
-
-        intro.classList.add("hidden");
-        overlay.classList.add("hidden");
+        document.getElementById("intro").classList.add("hidden");
+        document.getElementById("overlay").classList.add("hidden");
     }
 </script>
 </body>
